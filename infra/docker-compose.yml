@@ -105,8 +105,8 @@ services:
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
 
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
+  mailpit:
+    image: axllent/mailpit
     ports:
       - "1025:1025"
       - "8025:8025"

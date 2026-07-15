@@ -16,6 +16,7 @@ type Repository interface {
 	SaveQuote(ctx context.Context, q *Quote) error
 	GetQuote(ctx context.Context, id string) (*Quote, error)
 	UpdateQuoteStatus(ctx context.Context, id, status string) error
+	ListQuotesByStatus(ctx context.Context, status string) ([]*Quote, error)
 	SavePolicy(ctx context.Context, p *Policy) error
 	GetPolicy(ctx context.Context, id string) (*Policy, error)
 	NextPolicyNumber(ctx context.Context, year int) (string, error)
@@ -25,6 +26,7 @@ type Repository interface {
 	SaveInvoice(ctx context.Context, inv *Invoice) error
 	GetInvoice(ctx context.Context, id string) (*Invoice, error)
 	SaveReceipt(ctx context.Context, r *Receipt) error
+	ListDailyReceipts(ctx context.Context, date string) ([]*Receipt, error)
 
 	// Documents
 	SaveDocument(ctx context.Context, d *Document) error
@@ -102,6 +104,18 @@ func (m *MemoryRepository) UpdateQuoteStatus(_ context.Context, id, status strin
 	return nil
 }
 
+func (m *MemoryRepository) ListQuotesByStatus(_ context.Context, status string) ([]*Quote, error) {
+	m.Mu.RLock()
+	defer m.Mu.RUnlock()
+	var out []*Quote
+	for _, q := range m.Quotes {
+		if q.Status == status {
+			out = append(out, q)
+		}
+	}
+	return out, nil
+}
+
 func (m *MemoryRepository) SavePolicy(_ context.Context, p *Policy) error {
 	m.Mu.Lock()
 	defer m.Mu.Unlock()
@@ -157,6 +171,18 @@ func (m *MemoryRepository) SaveReceipt(_ context.Context, r *Receipt) error {
 	defer m.Mu.Unlock()
 	m.Receipts[r.ID] = r
 	return nil
+}
+
+func (m *MemoryRepository) ListDailyReceipts(_ context.Context, date string) ([]*Receipt, error) {
+	m.Mu.RLock()
+	defer m.Mu.RUnlock()
+	var out []*Receipt
+	for _, r := range m.Receipts {
+		if r.PaidAt.Format("2006-01-02") == date {
+			out = append(out, r)
+		}
+	}
+	return out, nil
 }
 
 func (m *MemoryRepository) SaveDocument(_ context.Context, d *Document) error {

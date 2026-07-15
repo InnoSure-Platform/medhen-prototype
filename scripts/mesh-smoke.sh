@@ -52,7 +52,7 @@ export KEYCLOAK_URL
 
 echo "== 6. Verify Postgres persistence =="
 COUNT=$(docker compose -f infra/docker-compose.yml exec -T postgres \
-  psql -U medhen -d medhen -t -c "SET search_path TO ${PG_SCHEMA}; SELECT count(*) FROM policies WHERE status='ISSUED';" | tr -d ' ')
+  psql -U medhen -d medhen -t -c "SELECT count(*) FROM ${PG_SCHEMA}.policies WHERE status='ISSUED';" | tr -d ' ' | tr -d '\n')
 if [[ "${COUNT:-0}" -lt 1 ]]; then
   echo "Expected at least 1 issued policy in Postgres, got: $COUNT" >&2
   exit 1
@@ -69,7 +69,7 @@ echo "  PDF files: $PDF_COUNT"
 
 echo "== 8. Kafka outbox (optional) =="
 OUTBOX=$(docker compose -f infra/docker-compose.yml exec -T postgres \
-  psql -U medhen -d medhen -t -c "SET search_path TO ${PG_SCHEMA}; SELECT count(*) FROM outbox WHERE published_at IS NOT NULL;" 2>/dev/null | tr -d ' ' || echo "0")
+  psql -U medhen -d medhen -t -c "SELECT count(*) FROM ${PG_SCHEMA}.outbox WHERE published_at IS NOT NULL;" 2>/dev/null | tr -d ' ' | tr -d '\n' || echo "0")
 echo "  published outbox rows: ${OUTBOX:-0}"
 
 echo ""

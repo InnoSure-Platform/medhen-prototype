@@ -6,6 +6,7 @@ const (
 	PolicyQuoted            = "pc.policy.quoted.v1"
 	PolicyBound             = "pc.policy.bound.v1"
 	PolicyIssued            = "pc.policy.issued.v1"
+	PolicyCancelled         = "pc.policy.cancelled.v1"
 	PaymentCompleted        = "pc.billing.payment.completed.v1"
 	PaymentFailed           = "pc.billing.payment.failed.v1"
 	DocumentGenerated       = "pc.document.generated.v1"

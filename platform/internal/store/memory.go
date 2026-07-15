@@ -51,6 +51,8 @@ type Party struct {
 	PhoneE164  string    `json:"phoneE164"`
 	Email      string    `json:"email,omitempty"`
 	Status     string    `json:"status"`
+	FaydaID    string    `json:"faydaId,omitempty"`
+	KYCStatus  string    `json:"kycStatus"`
 	Address    *Address  `json:"address,omitempty"`
 	CreatedAt  time.Time `json:"createdAt"`
 }
@@ -104,15 +106,19 @@ type Policy struct {
 	EffectiveTo    string        `json:"effectiveTo"`
 	IssuedAt       *time.Time    `json:"issuedAt,omitempty"`
 	InvoiceID      string        `json:"invoiceId,omitempty"`
+	ParentPolicyID string        `json:"parentPolicyId,omitempty"`
+	Version        int           `json:"version"`
 }
 
 type Invoice struct {
-	ID          string `json:"id"`
-	TenantID    string `json:"tenantId"`
-	PolicyID    string `json:"policyId"`
-	AmountMinor int64  `json:"amountMinor"`
-	Currency    string `json:"currency"`
-	Status      string `json:"status"`
+	ID                string `json:"id"`
+	TenantID          string `json:"tenantId"`
+	PolicyID          string `json:"policyId"`
+	AmountMinor       int64  `json:"amountMinor"`
+	Currency          string `json:"currency"`
+	Status            string `json:"status"`
+	DueDate           string `json:"dueDate,omitempty"`
+	InstallmentNumber int    `json:"installmentNumber,omitempty"`
 }
 
 type Receipt struct {
@@ -144,6 +150,8 @@ type Claim struct {
 	Latitude             float64    `json:"latitude,omitempty"`
 	Longitude            float64    `json:"longitude,omitempty"`
 	EstimatedAmountMinor int64      `json:"estimatedAmountMinor,omitempty"`
+	ReserveMinor         int64      `json:"reserveMinor,omitempty"`
+	RecoveryMinor        int64      `json:"recoveryMinor,omitempty"`
 	SettlementMinor      int64      `json:"settlementMinor,omitempty"`
 	Currency             string     `json:"currency"`
 	PhotoObjectKeys      []string   `json:"photoObjectKeys,omitempty"`

@@ -28,6 +28,7 @@ type Motor struct {
 	Pay     integration.TelebirrClient
 	SMS     integration.SMSClient
 	PDF     *pdf.Generator
+	Fayda   integration.FaydaClient
 }
 
 type idempotencyStore interface {
@@ -75,6 +76,35 @@ func (m *Motor) RegisterParty(ctx context.Context, cmd RegisterPartyCmd) (*store
 	return p, nil
 }
 
+func (m *Motor) VerifyKYC(ctx context.Context, partyID, faydaID, actor string) error {
+	p, err := m.Repo.GetParty(ctx, partyID)
+	if err != nil {
+		return err
+	}
+	if p.KYCStatus == "VERIFIED" {
+		return nil
+	}
+	profile, err := m.Fayda.Verify(faydaID)
+	if err != nil || profile == nil {
+		return pcerr.E(pcerr.CodeValidation, "invalid fayda ID")
+	}
+	if profile.Status != "ACTIVE" {
+		return pcerr.E(pcerr.CodeValidation, "fayda profile inactive")
+	}
+	p.FaydaID = faydaID
+	p.KYCStatus = "VERIFIED"
+	// We might also update the name based on verified data
+	p.FullName = profile.FullName
+
+	if err := m.Repo.SaveParty(ctx, p); err != nil {
+		return err
+	}
+
+	m.audit(ctx, "party", p.ID, "KYC_VERIFIED", actor, faydaID)
+	// Optionally emit outbox event here
+	return nil
+}
+
 func (m *Motor) GetParty(ctx context.Context, id string) (*store.Party, error) {
 	p, err := m.Repo.GetParty(ctx, id)
 	if err == store.ErrNotFound {
@@ -103,25 +133,69 @@ func (m *Motor) CreateQuote(ctx context.Context, cmd CreateQuoteCmd) (*store.Quo
 		cmd.Risk.Usage = "private"
 	}
 	uw := underwriting.EvaluateSTP(cmd.Risk.Year, cmd.Risk.SumInsuredMinor, cmd.Risk.CoverType)
-	if err := underwriting.RequireAccept(uw); err != nil {
-		return nil, err
+	if uw.Outcome == "DECLINE" {
+		return nil, pcerr.E(pcerr.CodeUWDeclined, uw.Reason)
 	}
+
 	rated := rating.CalculateMotor(rating.Input{
 		CoverType: cmd.Risk.CoverType, Usage: cmd.Risk.Usage, Year: cmd.Risk.Year,
 		SumInsuredMinor: cmd.Risk.SumInsuredMinor, Locale: cmd.Locale,
 	})
+
+	status := "QUOTED"
+	if uw.Outcome == "REFER" {
+		status = "REFERRED"
+	}
+
 	q := &store.Quote{
 		ID: uuid.NewString(), TenantID: tenant.EIC, PartyID: cmd.PartyID, ProductCode: cmd.ProductCode,
-		Status: "QUOTED", Risk: cmd.Risk, Lines: rated.Lines, TotalMinor: rated.TotalMinor,
+		Status: status, Risk: cmd.Risk, Lines: rated.Lines, TotalMinor: rated.TotalMinor,
 		Currency: rated.Currency, UWDecision: uw.Outcome, ExpiresAt: time.Now().UTC().Add(72 * time.Hour),
 		CreatedAt: time.Now().UTC(),
 	}
 	if err := m.Repo.SaveQuote(ctx, q); err != nil {
 		return nil, err
 	}
-	m.audit(ctx, "quote", q.ID, "QUOTED", cmd.Actor, fmt.Sprintf("total=%d %s", q.TotalMinor, q.Currency))
-	m.outbox(ctx, "quote", q.ID, events.PolicyQuoted, map[string]any{"quoteId": q.ID, "totalMinor": q.TotalMinor})
+	m.audit(ctx, "quote", q.ID, status, cmd.Actor, fmt.Sprintf("total=%d %s, uw=%s", q.TotalMinor, q.Currency, uw.Outcome))
+	if status == "QUOTED" {
+		m.outbox(ctx, "quote", q.ID, events.PolicyQuoted, map[string]any{"quoteId": q.ID, "totalMinor": q.TotalMinor})
+	}
 	return q, nil
+}
+
+func (m *Motor) ApproveQuote(ctx context.Context, quoteID, actor string) error {
+	q, err := m.Repo.GetQuote(ctx, quoteID)
+	if err != nil {
+		return err
+	}
+	if q.Status != "REFERRED" {
+		return pcerr.E(pcerr.CodeConflict, "quote is not REFERRED")
+	}
+	if err := m.Repo.UpdateQuoteStatus(ctx, quoteID, "QUOTED"); err != nil {
+		return err
+	}
+	m.audit(ctx, "quote", quoteID, "APPROVED", actor, "underwriter approved referral")
+	m.outbox(ctx, "quote", quoteID, events.PolicyQuoted, map[string]any{"quoteId": quoteID, "totalMinor": q.TotalMinor})
+	return nil
+}
+
+func (m *Motor) DeclineQuote(ctx context.Context, quoteID, actor string) error {
+	q, err := m.Repo.GetQuote(ctx, quoteID)
+	if err != nil {
+		return err
+	}
+	if q.Status != "REFERRED" {
+		return pcerr.E(pcerr.CodeConflict, "quote is not REFERRED")
+	}
+	if err := m.Repo.UpdateQuoteStatus(ctx, quoteID, "DECLINED"); err != nil {
+		return err
+	}
+	m.audit(ctx, "quote", quoteID, "DECLINED", actor, "underwriter declined referral")
+	return nil
+}
+
+func (m *Motor) ListReferredQuotes(ctx context.Context) ([]*store.Quote, error) {
+	return m.Repo.ListQuotesByStatus(ctx, "REFERRED")
 }
 
 func (m *Motor) GetQuote(ctx context.Context, id string) (*store.Quote, error) {
@@ -133,17 +207,26 @@ func (m *Motor) GetQuote(ctx context.Context, id string) (*store.Quote, error) {
 }
 
 type BindResult struct {
-	Policy  *store.Policy  `json:"policy"`
-	Invoice *store.Invoice `json:"invoice"`
+	Policy   *store.Policy    `json:"policy"`
+	Invoice  *store.Invoice   `json:"invoice"`
+	Invoices []*store.Invoice `json:"invoices"`
 }
 
-func (m *Motor) BindQuote(ctx context.Context, quoteID, actor, idemKey string) (*BindResult, error) {
+func (m *Motor) BindQuote(ctx context.Context, quoteID, installmentPlan, actor, idemKey string) (*BindResult, error) {
 	q, err := m.GetQuote(ctx, quoteID)
 	if err != nil {
 		return nil, err
 	}
 	if q.Status != "QUOTED" {
-		return nil, pcerr.E(pcerr.CodeConflict, "quote not in QUOTED status")
+		return nil, pcerr.E(pcerr.CodeConflict, "quote is not in QUOTED status")
+	}
+
+	p, err := m.GetParty(ctx, q.PartyID)
+	if err != nil {
+		return nil, err
+	}
+	if p.KYCStatus != "VERIFIED" {
+		return nil, pcerr.E(pcerr.CodeConflict, "kyc verification is required before binding")
 	}
 	now := time.Now().UTC()
 	pol := &store.Policy{
@@ -152,20 +235,35 @@ func (m *Motor) BindQuote(ctx context.Context, quoteID, actor, idemKey string) (
 		TotalMinor: q.TotalMinor, Currency: q.Currency,
 		EffectiveFrom: now.Format("2006-01-02"), EffectiveTo: now.AddDate(1, 0, -1).Format("2006-01-02"),
 	}
-	inv := &store.Invoice{ID: uuid.NewString(), TenantID: tenant.EIC, PolicyID: pol.ID, AmountMinor: pol.TotalMinor, Currency: pol.Currency, Status: "OPEN"}
-	pol.InvoiceID = inv.ID
+	var invoices []*store.Invoice
+	if installmentPlan == "40_30_30" {
+		down := (pol.TotalMinor * 40) / 100
+		p2 := (pol.TotalMinor * 30) / 100
+		p3 := pol.TotalMinor - down - p2 // remainder
+		
+		invoices = append(invoices, &store.Invoice{ID: uuid.NewString(), TenantID: tenant.EIC, PolicyID: pol.ID, AmountMinor: down, Currency: pol.Currency, Status: "OPEN", DueDate: now.Format("2006-01-02"), InstallmentNumber: 1})
+		invoices = append(invoices, &store.Invoice{ID: uuid.NewString(), TenantID: tenant.EIC, PolicyID: pol.ID, AmountMinor: p2, Currency: pol.Currency, Status: "OPEN", DueDate: now.AddDate(0, 1, 0).Format("2006-01-02"), InstallmentNumber: 2})
+		invoices = append(invoices, &store.Invoice{ID: uuid.NewString(), TenantID: tenant.EIC, PolicyID: pol.ID, AmountMinor: p3, Currency: pol.Currency, Status: "OPEN", DueDate: now.AddDate(0, 2, 0).Format("2006-01-02"), InstallmentNumber: 3})
+	} else {
+		// Default to 100_UPFRONT
+		invoices = append(invoices, &store.Invoice{ID: uuid.NewString(), TenantID: tenant.EIC, PolicyID: pol.ID, AmountMinor: pol.TotalMinor, Currency: pol.Currency, Status: "OPEN", DueDate: now.Format("2006-01-02"), InstallmentNumber: 1})
+	}
+
+	pol.InvoiceID = invoices[0].ID
 	if err := m.Repo.UpdateQuoteStatus(ctx, q.ID, "BOUND"); err != nil {
 		return nil, err
 	}
 	if err := m.Repo.SavePolicy(ctx, pol); err != nil {
 		return nil, err
 	}
-	if err := m.Repo.SaveInvoice(ctx, inv); err != nil {
-		return nil, err
+	for _, inv := range invoices {
+		if err := m.Repo.SaveInvoice(ctx, inv); err != nil {
+			return nil, err
+		}
 	}
-	m.audit(ctx, "policy", pol.ID, "BOUND", actor, "awaiting payment")
+	m.audit(ctx, "policy", pol.ID, "BOUND", actor, "awaiting downpayment")
 	m.outbox(ctx, "policy", pol.ID, events.PolicyBound, map[string]string{"policyId": pol.ID})
-	return &BindResult{Policy: pol, Invoice: inv}, nil
+	return &BindResult{Policy: pol, Invoice: invoices[0], Invoices: invoices}, nil
 }
 
 type PaymentResult struct {
@@ -202,25 +300,32 @@ func (m *Motor) PayInvoice(ctx context.Context, invoiceID, channel, phone, actor
 	if err != nil {
 		return nil, pcerr.Wrap(pcerr.CodePaymentFailed, "telebirr charge failed", err)
 	}
-	pn, err := m.Repo.NextPolicyNumber(ctx, time.Now().UTC().Year())
-	if err != nil {
-		return nil, err
-	}
-	pol.PolicyNumber = pn
-	pol.Status = "ISSUED"
 	now := time.Now().UTC()
-	pol.IssuedAt = &now
 	inv.Status = "PAID"
 	rec := &store.Receipt{ID: receiptRef, InvoiceID: inv.ID, Channel: channel, Status: "COMPLETED", PaidAt: now}
 	if err := m.Repo.SaveReceipt(ctx, rec); err != nil {
 		return nil, err
 	}
-	if err := m.Repo.SavePolicy(ctx, pol); err != nil {
-		return nil, err
-	}
 	if err := m.Repo.SaveInvoice(ctx, inv); err != nil {
 		return nil, err
 	}
+
+	if inv.InstallmentNumber <= 1 {
+		pn, err := m.Repo.NextPolicyNumber(ctx, time.Now().UTC().Year())
+		if err != nil {
+			return nil, err
+		}
+		pol.PolicyNumber = pn
+		pol.Status = "ISSUED"
+		pol.IssuedAt = &now
+		if err := m.Repo.SavePolicy(ctx, pol); err != nil {
+			return nil, err
+		}
+	} else {
+		// Log that a subsequent installment was paid
+		m.audit(ctx, "policy", pol.ID, "INSTALLMENT_PAID", actor, fmt.Sprintf("installment #%d paid", inv.InstallmentNumber))
+	}
+
 	var docs []store.Document
 	if m.PDF != nil {
 		docs, err = m.PDF.Pack(pol, party)
@@ -296,7 +401,37 @@ func (m *Motor) SubmitFNOL(ctx context.Context, cmd FNOLCmd) (*store.Claim, erro
 	return cl, nil
 }
 
-func (m *Motor) SettleFastTrack(ctx context.Context, claimID, actor, idemKey string) (*store.Claim, error) {
+func (m *Motor) AdjustReserve(ctx context.Context, claimID, actor string, amountMinor int64) error {
+	cl, err := m.Repo.GetClaim(ctx, claimID)
+	if err != nil {
+		return err
+	}
+	if cl.Status == "SETTLED" {
+		return pcerr.E(pcerr.CodeValidation, "cannot adjust reserve on settled claim")
+	}
+	oldReserve := cl.ReserveMinor
+	cl.ReserveMinor = amountMinor
+	if err := m.Repo.SaveClaim(ctx, cl); err != nil {
+		return err
+	}
+	m.audit(ctx, "claim", cl.ID, "RESERVE_ADJUSTED", actor, fmt.Sprintf("reserve changed from %d to %d", oldReserve, cl.ReserveMinor))
+	return nil
+}
+
+func (m *Motor) RecordRecovery(ctx context.Context, claimID, actor string, amountMinor int64) error {
+	cl, err := m.Repo.GetClaim(ctx, claimID)
+	if err != nil {
+		return err
+	}
+	cl.RecoveryMinor += amountMinor
+	if err := m.Repo.SaveClaim(ctx, cl); err != nil {
+		return err
+	}
+	m.audit(ctx, "claim", cl.ID, "RECOVERY_RECORDED", actor, fmt.Sprintf("recorded recovery of %d", amountMinor))
+	return nil
+}
+
+func (m *Motor) SettleClaim(ctx context.Context, claimID, actor, idemKey string, settlementMinor int64) (*store.Claim, error) {
 	cl, err := m.Repo.GetClaim(ctx, claimID)
 	if err == store.ErrNotFound {
 		return nil, pcerr.E(pcerr.CodeNotFound, "claim not found")
@@ -307,24 +442,254 @@ func (m *Motor) SettleFastTrack(ctx context.Context, claimID, actor, idemKey str
 	if cl.Status == "SETTLED" {
 		return cl, nil
 	}
-	if cl.Track != "FAST_TRACK" {
-		return nil, pcerr.E(pcerr.CodeValidation, "claim not on fast-track")
+
+	pol, err := m.Repo.GetPolicy(ctx, cl.PolicyID)
+	if err != nil {
+		return nil, err
 	}
+
+	if cl.Track == "TOTAL_LOSS" && settlementMinor > pol.Risk.SumInsuredMinor {
+		return nil, pcerr.E(pcerr.CodeValidation, "settlement exceeds sum insured for total loss")
+	}
+
 	cl.Status = "SETTLED"
-	cl.SettlementMinor = cl.EstimatedAmountMinor
+	cl.SettlementMinor = settlementMinor
 	now := time.Now().UTC()
 	cl.SettledAt = &now
 	if err := m.Repo.SaveClaim(ctx, cl); err != nil {
 		return nil, err
 	}
-	if pol, err := m.Repo.GetPolicy(ctx, cl.PolicyID); err == nil {
-		if party, err := m.Repo.GetParty(ctx, pol.PartyID); err == nil && m.SMS != nil {
-			_ = m.SMS.Send(party.PhoneE164, i18n.T("claim.settled", i18n.EN))
-		}
+	
+	if cl.Track == "TOTAL_LOSS" {
+		_ = m.CancelPolicy(ctx, CancelPolicyCmd{
+			PolicyID: pol.ID,
+			Actor:    actor,
+			Reason:   "Total Loss Exhaustion",
+		})
+	}
+
+	if party, err := m.Repo.GetParty(ctx, pol.PartyID); err == nil && m.SMS != nil {
+		_ = m.SMS.Send(party.PhoneE164, i18n.T("claim.settled", i18n.EN))
 	}
 	m.audit(ctx, "claim", cl.ID, "SETTLED", actor, fmt.Sprintf("%d", cl.SettlementMinor))
 	m.outbox(ctx, "claim", cl.ID, events.ClaimSettled, map[string]any{"claimId": cl.ID})
 	return cl, nil
+}
+
+type EndorsePolicyCmd struct {
+	PolicyID string
+	Risk     store.MotorRisk
+	Actor    string
+	IdemKey  string
+}
+
+func (m *Motor) EndorsePolicy(ctx context.Context, cmd EndorsePolicyCmd) (*store.Policy, error) {
+	old, err := m.Repo.GetPolicy(ctx, cmd.PolicyID)
+	if err != nil {
+		return nil, err
+	}
+	if old.Status != "ISSUED" {
+		return nil, pcerr.E(pcerr.CodeConflict, "can only endorse ISSUED policy")
+	}
+
+	uw := underwriting.EvaluateSTP(cmd.Risk.Year, cmd.Risk.SumInsuredMinor, cmd.Risk.CoverType)
+	if err := underwriting.RequireAccept(uw); err != nil {
+		return nil, err
+	}
+
+	rated := rating.CalculateMotor(rating.Input{
+		CoverType: cmd.Risk.CoverType, Usage: cmd.Risk.Usage, Year: cmd.Risk.Year,
+		SumInsuredMinor: cmd.Risk.SumInsuredMinor, Locale: i18n.EN,
+	})
+
+	// Simplistic pro-rata logic for demo: diff of totals
+	diff := rated.TotalMinor - old.TotalMinor
+
+	now := time.Now().UTC()
+	newPol := &store.Policy{
+		ID:             uuid.NewString(),
+		TenantID:       tenant.EIC,
+		PolicyNumber:   old.PolicyNumber,
+		QuoteID:        old.QuoteID,
+		PartyID:        old.PartyID,
+		ProductCode:    old.ProductCode,
+		Status:         "ISSUED",
+		Risk:           cmd.Risk,
+		Lines:          rated.Lines,
+		TotalMinor:     rated.TotalMinor,
+		Currency:       rated.Currency,
+		EffectiveFrom:  old.EffectiveFrom,
+		EffectiveTo:    old.EffectiveTo,
+		IssuedAt:       &now,
+		ParentPolicyID: old.ID,
+		Version:        old.Version + 1,
+	}
+
+	// Create invoice for difference if > 0
+	if diff > 0 {
+		inv := &store.Invoice{
+			ID:          uuid.NewString(),
+			TenantID:    tenant.EIC,
+			PolicyID:    newPol.ID,
+			AmountMinor: diff,
+			Currency:    newPol.Currency,
+			Status:      "OPEN",
+		}
+		if err := m.Repo.SaveInvoice(ctx, inv); err != nil {
+			return nil, err
+		}
+		newPol.InvoiceID = inv.ID
+	}
+
+	old.Status = "SUPERSEDED"
+	if err := m.Repo.SavePolicy(ctx, old); err != nil {
+		return nil, err
+	}
+	if err := m.Repo.SavePolicy(ctx, newPol); err != nil {
+		return nil, err
+	}
+
+	m.audit(ctx, "policy", newPol.ID, "ENDORSED", cmd.Actor, fmt.Sprintf("diff=%d %s", diff, newPol.Currency))
+	m.outbox(ctx, "policy", newPol.ID, events.PolicyIssued, map[string]any{"policyId": newPol.ID})
+	return newPol, nil
+}
+
+type RenewPolicyCmd struct {
+	PolicyID string
+	Actor    string
+	IdemKey  string
+}
+
+func (m *Motor) RenewPolicy(ctx context.Context, cmd RenewPolicyCmd) (*store.Policy, error) {
+	old, err := m.Repo.GetPolicy(ctx, cmd.PolicyID)
+	if err != nil {
+		return nil, err
+	}
+	if old.Status != "ISSUED" {
+		return nil, pcerr.E(pcerr.CodeConflict, "can only renew ISSUED policy")
+	}
+
+	// Calculate new effective dates (1 year from old end)
+	oldTo, err := time.Parse("2006-01-02", old.EffectiveTo)
+	if err != nil {
+		return nil, err
+	}
+	newTo := oldTo.AddDate(1, 0, 0)
+
+	rated := rating.CalculateMotor(rating.Input{
+		CoverType: old.Risk.CoverType, Usage: old.Risk.Usage, Year: old.Risk.Year,
+		SumInsuredMinor: old.Risk.SumInsuredMinor, Locale: i18n.EN,
+	})
+
+
+	newPol := &store.Policy{
+		ID:             uuid.NewString(),
+		TenantID:       tenant.EIC,
+		PolicyNumber:   old.PolicyNumber, // keep same policy number across renewals
+		QuoteID:        old.QuoteID,
+		PartyID:        old.PartyID,
+		ProductCode:    old.ProductCode,
+		Status:         "PENDING_PAYMENT",
+		Risk:           old.Risk,
+		Lines:          rated.Lines,
+		TotalMinor:     rated.TotalMinor,
+		Currency:       rated.Currency,
+		EffectiveFrom:  oldTo.Format("2006-01-02"),
+		EffectiveTo:    newTo.Format("2006-01-02"),
+		ParentPolicyID: old.ID,
+		Version:        old.Version + 1,
+	}
+
+	inv := &store.Invoice{
+		ID:          uuid.NewString(),
+		TenantID:    tenant.EIC,
+		PolicyID:    newPol.ID,
+		AmountMinor: newPol.TotalMinor,
+		Currency:    newPol.Currency,
+		Status:      "OPEN",
+	}
+	newPol.InvoiceID = inv.ID
+
+	if err := m.Repo.SaveInvoice(ctx, inv); err != nil {
+		return nil, err
+	}
+	if err := m.Repo.SavePolicy(ctx, newPol); err != nil {
+		return nil, err
+	}
+
+	m.audit(ctx, "policy", newPol.ID, "RENEWAL_GENERATED", cmd.Actor, "pending payment")
+	return newPol, nil
+}
+
+type CancelPolicyCmd struct {
+	PolicyID string
+	Actor    string
+	IdemKey  string
+	Reason   string
+}
+
+func (m *Motor) CancelPolicy(ctx context.Context, cmd CancelPolicyCmd) error {
+	pol, err := m.Repo.GetPolicy(ctx, cmd.PolicyID)
+	if err != nil {
+		return err
+	}
+	if pol.Status != "ISSUED" {
+		return pcerr.E(pcerr.CodeConflict, "can only cancel ISSUED policy")
+	}
+
+	pol.Status = "CANCELLED"
+	now := time.Now().UTC()
+	pol.EffectiveTo = now.Format("2006-01-02")
+	if err := m.Repo.SavePolicy(ctx, pol); err != nil {
+		return err
+	}
+
+	// Emit cancellation refund logic here (simplistic for demo: flat refund)
+	m.audit(ctx, "policy", pol.ID, "CANCELLED", cmd.Actor, cmd.Reason)
+	m.outbox(ctx, "policy", pol.ID, events.PolicyCancelled, map[string]string{"policyId": pol.ID, "reason": cmd.Reason})
+	return nil
+}
+
+func (m *Motor) RunEndOfDayReconciliation(ctx context.Context, date string) (map[string]interface{}, error) {
+	if date == "" {
+		date = time.Now().UTC().Format("2006-01-02")
+	}
+	receipts, err := m.Repo.ListDailyReceipts(ctx, date)
+	if err != nil {
+		return nil, err
+	}
+
+	var total int64
+	var count int
+	for _, r := range receipts {
+		if r.Status == "COMPLETED" {
+			count++
+			// Look up invoice to get amount
+			inv, err := m.Repo.GetInvoice(ctx, r.InvoiceID)
+			if err == nil && inv != nil {
+				total += inv.AmountMinor
+			}
+		}
+	}
+
+	res := map[string]interface{}{
+		"date":                 date,
+		"totalReceipts":        count,
+		"totalAmountMinor":     total,
+		"status":               "RECONCILED",
+		"erpJournalRef":        uuid.NewString(),
+		"reconciliationTime": time.Now().UTC().Format(time.RFC3339),
+	}
+	
+	// Simulate ERP export event
+	m.outbox(ctx, "system", date, "ERP_RECONCILIATION_COMPLETED", map[string]string{
+		"date": date,
+		"totalMinor": fmt.Sprintf("%d", total),
+	})
+
+	m.audit(ctx, "system", date, "ERP_RECONCILIATION", "system", fmt.Sprintf("Reconciled %d receipts for total %d minor", count, total))
+
+	return res, nil
 }
 
 func (m *Motor) QueryAudit(ctx context.Context, entityType, entityID string, limit int) ([]store.AuditEntry, error) {
@@ -373,5 +738,6 @@ func NewDefault() *Motor {
 		Pay:     integration.NewTelebirrFromEnv(),
 		SMS:     &integration.MockSMS{},
 		PDF:     pdf.NewGenerator("", "/files"),
+		Fayda:   integration.MockFayda{},
 	}
 }

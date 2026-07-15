@@ -1,0 +1,45 @@
+name: Medhen Platform CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-go:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+    - name: Build Go Platform
+      run: cd platform && go build -v ./...
+    - name: Test Go Platform
+      run: cd platform && go test -v ./...
+
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+    - name: Install dependencies
+      run: cd web && npm ci
+    - name: Build Next.js
+      run: cd web && npm run build
+
+  docker-build:
+    needs: [test-go, build-web]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build Medhen Platform Docker image
+      run: docker build -t innosure/medhen-platform:latest .
+    - name: Push to Registry (Mock)
+      run: echo "Pushing to registry... done."

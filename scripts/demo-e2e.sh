@@ -69,7 +69,7 @@ POLICY_ID=$(python3 -c "import sys,json; print(json.load(sys.stdin)['policy']['i
 
 echo "== 5. Pay via Telebirr =="
 PHONE=$(python3 -c "import json,sys; print(json.load(sys.stdin)['party']['phoneE164'])" <<<"$PAYLOAD")
-PAY=$(curl -sf "${BASE}/billing/invoices/${INVOICE_ID}/pay" "${HDR[@]}" \
+PAY=$(curl -s "${BASE}/billing/invoices/${INVOICE_ID}/pay" "${HDR[@]}" \
   -H "Idempotency-Key: $(uuidgen)" \
   -d "{\"channel\":\"telebirr\",\"phone\":\"${PHONE}\"}")
 echo "$PAY" | tee /tmp/medhen-pay.json
@@ -110,7 +110,7 @@ echo
 # Postgres verification when DATABASE_URL is set on the runner
 if [[ -n "${DATABASE_URL:-}" ]]; then
   echo "== Postgres: policies issued =="
-  psql "$DATABASE_URL" -t -c "SET search_path TO ${PG_SCHEMA:-pc_medhen}; SELECT count(*) FROM policies WHERE status='ISSUED';" 2>/dev/null || \
+  psql "$DATABASE_URL" -t -c "SELECT count(*) FROM ${PG_SCHEMA:-pc_medhen}.policies WHERE status='ISSUED';" 2>/dev/null || \
     echo "(psql not available — skip DB check)"
 fi
 

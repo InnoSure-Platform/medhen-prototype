@@ -5,7 +5,7 @@ import { useLocale } from "@/components/Shell";
 import { api, docLabel, type PaymentResult, type Quote } from "@/lib/api";
 import { formatETB, t } from "@/lib/i18n";
 
-type Step = "party" | "risk" | "quote" | "pay" | "done";
+type Step = "party" | "kyc" | "risk" | "quote" | "pay" | "done";
 
 export default function QuotePage() {
   const { locale } = useLocale();
@@ -13,7 +13,9 @@ export default function QuotePage() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [partyId, setPartyId] = useState("");
+  const [faydaId, setFaydaId] = useState("1234567890");
   const [phone, setPhone] = useState("+251911234567");
+  const [installmentPlan, setInstallmentPlan] = useState("100_UPFRONT");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [invoiceId, setInvoiceId] = useState("");
   const [result, setResult] = useState<PaymentResult | null>(null);
@@ -40,6 +42,18 @@ export default function QuotePage() {
       });
       setPartyId(party.id);
       setPhone(form.phoneE164);
+      setStep("kyc");
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyIdentity() {
+    setBusy(true); setErr("");
+    try {
+      await api.verifyKYC(locale, partyId, faydaId);
       setStep("risk");
     } catch (e) {
       setErr(String(e));
@@ -77,7 +91,7 @@ export default function QuotePage() {
     if (!quote) return;
     setBusy(true); setErr("");
     try {
-      const bind = await api.bindQuote(locale, quote.id);
+      const bind = await api.bindQuote(locale, quote.id, installmentPlan);
       setInvoiceId(bind.invoice.id);
       const pay = await api.pay(locale, bind.invoice.id, phone);
       setResult(pay);
@@ -100,7 +114,7 @@ export default function QuotePage() {
     <div className="section">
       <h1>{t("quoteTitle", locale)}</h1>
       <div className="steps">
-        {(["party", "risk", "quote", "pay", "done"] as Step[]).map((s) => (
+        {(["party", "kyc", "risk", "quote", "pay", "done"] as Step[]).map((s) => (
           <div key={s} className={`step ${step === s ? "on" : ""}`}>{s}</div>
         ))}
       </div>
@@ -115,6 +129,22 @@ export default function QuotePage() {
           </div>
           <button className="btn btn-primary" type="button" disabled={busy} onClick={registerAndContinue}>
             {busy ? "…" : t("quoteContinue", locale)}
+          </button>
+        </div>
+      )}
+
+      {step === "kyc" && (
+        <div className="stack">
+          <h2>Fayda Identity Verification</h2>
+          <p>Please enter your 10-digit National ID (Fayda) to verify your identity.</p>
+          <div className="grid-2">
+            <div className="field">
+              <label>Fayda ID</label>
+              <input value={faydaId} onChange={(e) => setFaydaId(e.target.value)} placeholder="e.g. 1234567890" />
+            </div>
+          </div>
+          <button className="btn btn-primary" type="button" disabled={busy} onClick={verifyIdentity}>
+            {busy ? "…" : "Verify & Continue"}
           </button>
         </div>
       )}
@@ -159,7 +189,29 @@ export default function QuotePage() {
               </tr>
             </tbody>
           </table>
-          <button className="btn btn-primary" type="button" disabled={busy} onClick={bindAndPay}>
+
+          {quote.status === "REFERRED" ? (
+            <div className="banner-err" style={{ marginTop: "1rem" }}>
+              <strong>Pending Underwriting Review:</strong> Your quote has been referred to an underwriter. You will be able to proceed with payment once it is approved.
+            </div>
+          ) : (
+            <div style={{ margin: "1.5rem 0", padding: "1rem", background: "rgba(255,255,255,0.5)", borderRadius: "8px" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <strong>Select Payment Plan:</strong>
+                <select className="input" value={installmentPlan} onChange={(e) => setInstallmentPlan(e.target.value)}>
+                  <option value="100_UPFRONT">Pay 100% Upfront</option>
+                  <option value="40_30_30">Installments (40% Now, 30% in 30 days, 30% in 60 days)</option>
+                </select>
+              </label>
+              {installmentPlan === "40_30_30" && (
+                <p style={{ marginTop: "0.5rem", fontSize: "0.85rem", color: "#666" }}>
+                  Downpayment due today: {formatETB(quote.totalMinor * 0.4, locale)}
+                </p>
+              )}
+            </div>
+          )}
+
+          <button className="btn btn-primary" type="button" disabled={busy || quote.status === "REFERRED"} onClick={bindAndPay}>
             {busy ? "…" : t("quotePay", locale)}
           </button>
         </div>

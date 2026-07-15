@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medhen-api
+  labels:
+    app: medhen-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: medhen-api
+  template:
+    metadata:
+      labels:
+        app: medhen-api
+    spec:
+      containers:
+      - name: medhen-api
+        image: innosure/medhen-platform:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: medhen-secrets
+              key: database-url
+        - name: KAFKA_BROKERS
+          value: "redpanda:9092"
+        - name: REDIS_URL
+          value: "redis://valkey:6379/0"
+        - name: PG_SCHEMA
+          value: "pc_medhen"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20

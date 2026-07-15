@@ -49,6 +49,8 @@ func startStandard(ctx context.Context, addr, name, mode string) {
 			api.MountBilling(router)
 		case "claims":
 			api.MountClaims(router)
+		case "fincrime":
+			api.MountFincrime(router)
 		case "gateway":
 			api.MountPublic(router)
 		default:

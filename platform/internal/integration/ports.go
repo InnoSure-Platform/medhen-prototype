@@ -36,12 +36,30 @@ func (m *MockSMS) Send(to, body string) error {
 	return nil
 }
 
+type FaydaProfile struct {
+	FullName string
+	Status   string
+}
+
 type FaydaClient interface {
-	Verify(nationalID string) (bool, error)
+	Verify(nationalID string) (*FaydaProfile, error)
 }
 
 type MockFayda struct{}
 
-func (MockFayda) Verify(nationalID string) (bool, error) {
-	return nationalID != "", nil
+func (MockFayda) Verify(nationalID string) (*FaydaProfile, error) {
+	if nationalID == "1234567890" {
+		return &FaydaProfile{
+			FullName: "Abebe Bikila",
+			Status:   "ACTIVE",
+		}, nil
+	}
+	if nationalID == "" {
+		return nil, fmt.Errorf("invalid national ID")
+	}
+	// Default mock behavior
+	return &FaydaProfile{
+		FullName: "Verified Citizen",
+		Status:   "ACTIVE",
+	}, nil
 }

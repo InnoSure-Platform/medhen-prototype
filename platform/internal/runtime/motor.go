@@ -27,6 +27,7 @@ func BuildMotor(ctx context.Context) *usecase.Motor {
 		Pay:     integration.NewTelebirrFromEnv(),
 		SMS:     &integration.MockSMS{},
 		PDF:     pdf.NewGenerator(docsDir, "/files"),
+		Fayda:   integration.MockFayda{},
 	}
 	if url := os.Getenv("REDIS_URL"); url != "" {
 		opt, err := redis.ParseURL(url)

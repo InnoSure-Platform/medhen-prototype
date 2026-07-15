@@ -1,13 +1,19 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { clearAuth, loadAuth, login as doLogin, logout as doLogout, type AuthUser } from "@/lib/auth";
+import { signIn, signOut, useSession, SessionProvider } from "next-auth/react";
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+
+import { usePathname, useRouter } from "next/navigation";
+
+type AuthUser = {
+  username: string;
+  accessToken: string;
+};
 
 type AuthCtx = {
   user: AuthUser | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: () => Promise<void>;
   logout: () => Promise<void>;
   getToken: () => string | null;
 };
@@ -24,23 +30,23 @@ export function useAuth() {
   return useContext(Ctx);
 }
 
-const PUBLIC_PATHS = new Set(["/", "/login"]);
+function InnerProvider({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession();
+  const loading = status === "loading";
 
-function isPublic(path: string | null) {
-  return path != null && PUBLIC_PATHS.has(path);
-}
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED !== "false";
 
-  useEffect(() => {
-    setUser(loadAuth());
-    setLoading(false);
-  }, []);
+  const user = useMemo(() => {
+    if (!session?.accessToken) return null;
+    return {
+      username: session.user?.name || session.user?.email || "User",
+      accessToken: session.accessToken,
+    };
+  }, [session]);
+
+  const isPublic = (p: string | null) => p && (p === "/" || p === "/login");
 
   useEffect(() => {
     if (!authRequired || loading) return;
@@ -49,27 +55,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, loading, pathname, router, authRequired]);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const u = await doLogin(username, password);
-    setUser(u);
-  }, []);
-
-  const logout = useCallback(async () => {
-    await doLogout();
-    setUser(null);
-    router.push("/login");
-  }, [router]);
-
   const value = useMemo(
     () => ({
       user,
       loading,
-      login,
-      logout,
+      login: async () => { await signIn("keycloak", { callbackUrl: pathname !== "/login" ? pathname : "/quote" }); },
+      logout: async () => { await signOut({ callbackUrl: "/" }); },
       getToken: () => user?.accessToken ?? null,
     }),
-    [user, loading, login, logout],
+    [user, loading, pathname]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return (
+    <SessionProvider>
+      <InnerProvider>{children}</InnerProvider>
+    </SessionProvider>
+  );
 }

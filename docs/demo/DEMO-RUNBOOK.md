@@ -10,10 +10,9 @@
 
 ```bash
 cp .env.example .env
-make build-all
-make infra-up          # Postgres, Valkey, Redpanda, MinIO, Keycloak
-./scripts/mesh-up.sh   # microservices + gateway
-cd web && npm install && npm run dev   # terminal 2
+make build-all         # optional if just using docker compose
+cd infra && docker compose up -d --build
+cd ../web && npm install && npm run dev   # terminal 2
 ```
 
 **Verify:**
@@ -63,7 +62,7 @@ Full narrative: [`STORYBOARD.md`](./STORYBOARD.md)
 |---|---|
 | Login fails | Keycloak still starting — wait 30s, retry. Check `curl localhost:8081/realms/medhen` |
 | API 401 | Ensure logged in on web; or run `./scripts/keycloak-token.sh` for CLI |
-| Mesh down | `./scripts/mesh-down.sh && ./scripts/mesh-up.sh` |
+| Mesh down | `cd infra && docker compose restart` |
 | Monolith fallback | `MEDHEN_DOCS_DIR=./data/docs ./bin/medhen-api` (no JWT if `KEYCLOAK_URL` unset) |
 
 ---
@@ -80,7 +79,7 @@ export KEYCLOAK_URL=http://localhost:8081
 ## Telebirr sandbox (when credentials arrive)
 
 1. Add to `.env`: `TELEBIRR_APP_ID`, `TELEBIRR_APP_SECRET`, `TELEBIRR_SHORT_CODE`, `TELEBIRR_BASE_URL`
-2. Restart mesh: `./scripts/mesh-down.sh && ./scripts/mesh-up.sh`
+2. Restart mesh: `cd infra && docker compose up -d --build`
 3. Prove: `./scripts/telebirr-prove.sh`
 
 ---
@@ -88,8 +87,7 @@ export KEYCLOAK_URL=http://localhost:8081
 ## After demo
 
 ```bash
-./scripts/mesh-down.sh
-make infra-down   # optional
+cd infra && docker compose down
 ```
 
 **Artifacts to share:** PDFs in `data/docs/`, KPI JSON from `/api/v1/demo/kpis`, audit from `/api/v1/audit`

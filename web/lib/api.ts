@@ -80,8 +80,8 @@ export const api = {
     req<Party>("/parties", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify(body) }),
   createQuote: (locale: string, body: object) =>
     req<Quote>("/quotes", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify(body) }),
-  bindQuote: (locale: string, quoteId: string) =>
-    req<BindResponse>(`/quotes/${quoteId}/bind`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+  bindQuote: (locale: string, quoteId: string, installmentPlan: string = "100_UPFRONT") =>
+    req<BindResponse>(`/quotes/${quoteId}/bind`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ installmentPlan }) }),
   pay: (locale: string, invoiceId: string, phone: string) =>
     req<PaymentResult>(`/billing/invoices/${invoiceId}/pay`, {
       method: "POST",
@@ -95,6 +95,31 @@ export const api = {
   kpis: (locale: string) => req<KPI>("/demo/kpis", { headers: headers(locale) }),
   audit: (locale: string) => req<Audit[]>("/audit?limit=30", { headers: headers(locale) }),
   riskSchema: (locale: string) => req<Record<string, unknown>>("/products/MOTOR-PRIVATE-COMP/risk-schema", { headers: headers(locale) }),
+  getPolicy: (locale: string, policyId: string) => req<any>(`/policies/${policyId}`, { headers: headers(locale) }),
+  endorsePolicy: (locale: string, policyId: string, risk: any) =>
+    req<any>(`/policies/${policyId}/endorse`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ risk }) }),
+  renewPolicy: (locale: string, policyId: string) =>
+    req<any>(`/policies/${policyId}/renew`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+  cancelPolicy: (locale: string, policyId: string) =>
+    req<void>(`/policies/${policyId}/cancel`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+  runEodReconciliation: (locale: string, date: string) =>
+    req<any>("/billing/eod-reconciliation", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ date }) }),
+  listReferredQuotes: (locale: string) =>
+    req<Quote[]>("/quotes?status=REFERRED", { method: "GET", headers: headers(locale, crypto.randomUUID()) }),
+  approveQuote: (locale: string, quoteId: string) =>
+    req<any>(`/quotes/${quoteId}/approve`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+  declineQuote: (locale: string, quoteId: string) =>
+    req<any>(`/quotes/${quoteId}/decline`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+  adjustClaimReserve: (locale: string, claimId: string, amountMinor: number) =>
+    req<any>(`/claims/${claimId}/reserve`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ amountMinor }) }),
+  recordClaimRecovery: (locale: string, claimId: string, amountMinor: number) =>
+    req<any>(`/claims/${claimId}/recovery`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ amountMinor }) }),
+  settleClaim: (locale: string, claimId: string, settlementMinor: number) =>
+    req<any>(`/claims/${claimId}/settle`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ settlementMinor }) }),
+  listClaims: (locale: string) =>
+    req<any[]>(`/claims`, { method: "GET", headers: headers(locale, crypto.randomUUID()) }),
+  verifyKYC: (locale: string, partyId: string, faydaId: string) =>
+    req<any>(`/parties/${partyId}/kyc-verify`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ faydaId }) }),
   fileUrl: (path: string) => `${API_BASE}${path}`,
   saveLastPolicy: (policyId: string, policyNumber: string) => {
     if (typeof window !== "undefined") {

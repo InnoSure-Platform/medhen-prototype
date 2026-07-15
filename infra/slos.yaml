@@ -1,0 +1,40 @@
+apiVersion: sloth.slok.dev/v1
+kind: PrometheusServiceLevel
+metadata:
+  name: medhen-api-slos
+  namespace: medhen
+spec:
+  service: "medhen-api"
+  labels:
+    tier: "tier-1"
+  slos:
+    - name: "requests-availability"
+      objective: 99.9
+      description: "99.9% of all requests must succeed (non-5xx)"
+      sli:
+        events:
+          errorQuery: sum(rate(http_requests_total{job="medhen-api", status=~"5.."}[{{.window}}]))
+          totalQuery: sum(rate(http_requests_total{job="medhen-api"}[{{.window}}]))
+      alerting:
+        name: MedhenApiHighErrorRate
+        labels:
+          severity: "critical"
+        annotations:
+          summary: "Medhen API is experiencing high error rate"
+        pageAlert:
+          labels:
+            severity: "critical"
+
+    - name: "quotes-latency"
+      objective: 99
+      description: "99% of Quote requests must complete in < 1000ms"
+      sli:
+        events:
+          errorQuery: sum(rate(http_request_duration_seconds_count{job="medhen-api", path="/quotes", le!="1.0"}[{{.window}}]))
+          totalQuery: sum(rate(http_request_duration_seconds_count{job="medhen-api", path="/quotes"}[{{.window}}]))
+      alerting:
+        name: MedhenApiQuotesLatencyHigh
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "Medhen API Quotes are slow"

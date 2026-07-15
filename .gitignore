@@ -8,3 +8,4 @@ data/docs/
 .env.local
 dist/
 coverage/
+logs/*.pid
