@@ -1,0 +1,22 @@
+{
+  "code": "MOTOR-PRIVATE-COMP",
+  "name": "EIC Motor Private Comprehensive",
+  "nameAm": "የኢንሹራንስ የግል መኪና ሁለንተናዊ",
+  "lob": "motor",
+  "version": "2026.1",
+  "coverTypes": ["comprehensive", "third_party"],
+  "rating": {
+    "comprehensiveRate": 0.035,
+    "thirdPartyBaseETB": 2500,
+    "thirdPartySIRate": 0.0015,
+    "vat": 0.15,
+    "stampDutyRate": 0.005,
+    "stampDutyMinETB": 25
+  },
+  "uw": {
+    "minYear": 2010,
+    "maxSumInsuredETB": 5000000,
+    "mode": "STP"
+  },
+  "policyNumberPrefix": "EIC/MOT"
+}

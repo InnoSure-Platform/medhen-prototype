@@ -1,0 +1,33 @@
+# Medhen Kafka topics — Phase 0 pilot set
+version: 1
+topics:
+  - name: pc.party.registered.v1
+    producers: [pc-party-mgmt-svc]
+    consumers: [pc-audit-svc, pc-notification-svc]
+  - name: pc.policy.quoted.v1
+    producers: [pc-policy-svc]
+    consumers: [pc-audit-svc]
+  - name: pc.policy.bound.v1
+    producers: [pc-policy-svc]
+    consumers: [pc-billing-svc, pc-audit-svc]
+  - name: pc.policy.issued.v1
+    producers: [pc-policy-svc]
+    consumers: [pc-document-svc, pc-notification-svc, pc-audit-svc]
+  - name: pc.billing.payment.completed.v1
+    producers: [pc-billing-svc]
+    consumers: [pc-policy-svc, pc-notification-svc, pc-audit-svc]
+  - name: pc.billing.payment.failed.v1
+    producers: [pc-billing-svc]
+    consumers: [pc-policy-svc, pc-audit-svc]
+  - name: pc.document.generated.v1
+    producers: [pc-document-svc]
+    consumers: [pc-notification-svc, pc-audit-svc]
+  - name: pc.claim.registered.v1
+    producers: [pc-claims-svc]
+    consumers: [pc-audit-svc, pc-notification-svc]
+  - name: pc.claim.settled.v1
+    producers: [pc-claims-svc]
+    consumers: [pc-billing-svc, pc-notification-svc, pc-audit-svc]
+  - name: pc.audit.appended.v1
+    producers: [pc-audit-svc]
+    consumers: []

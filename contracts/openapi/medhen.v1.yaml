@@ -1,0 +1,461 @@
+openapi: 3.1.0
+info:
+  title: Medhen Platform Edge API
+  version: 0.1.0
+  description: |
+    Phase 0 pilot OpenAPI for pc-gateway / pc-web.
+    Tenant is EIC; policy numbers use EIC/MOT/... prefix.
+servers:
+  - url: http://localhost:8080/api/v1
+tags:
+  - name: Party
+  - name: Product
+  - name: Quote
+  - name: Policy
+  - name: Billing
+  - name: Documents
+  - name: Claims
+  - name: Audit
+  - name: Demo
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        "200":
+          description: OK
+  /parties:
+    post:
+      tags: [Party]
+      operationId: registerParty
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/Locale"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterPartyRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Party"
+  /parties/{partyId}:
+    get:
+      tags: [Party]
+      operationId: getParty
+      parameters:
+        - $ref: "#/components/parameters/PartyId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Party"
+  /products/{productCode}:
+    get:
+      tags: [Product]
+      operationId: getProduct
+      parameters:
+        - name: productCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+  /products/{productCode}/risk-schema:
+    get:
+      tags: [Product]
+      operationId: getRiskSchema
+      parameters:
+        - name: productCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /quotes:
+    post:
+      tags: [Quote]
+      operationId: createQuote
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/Locale"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuoteRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+  /quotes/{quoteId}:
+    get:
+      tags: [Quote]
+      operationId: getQuote
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+  /quotes/{quoteId}/bind:
+    post:
+      tags: [Quote]
+      operationId: bindQuote
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Bound — awaiting payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BindResponse"
+  /billing/invoices/{invoiceId}/pay:
+    post:
+      tags: [Billing]
+      operationId: payInvoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                channel:
+                  type: string
+                  enum: [telebirr, mock]
+                  default: telebirr
+                phone:
+                  type: string
+      responses:
+        "200":
+          description: Payment completed + policy issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResult"
+  /policies/{policyId}:
+    get:
+      tags: [Policy]
+      operationId: getPolicy
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+  /policies/{policyId}/documents:
+    get:
+      tags: [Documents]
+      operationId: listPolicyDocuments
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /claims:
+    post:
+      tags: [Claims]
+      operationId: submitFNOL
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FNOLRequest"
+      responses:
+        "201":
+          description: Claim registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Claim"
+  /claims/{claimId}/settle:
+    post:
+      tags: [Claims]
+      operationId: settleFastTrack
+      parameters:
+        - name: claimId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Settled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Claim"
+  /audit:
+    get:
+      tags: [Audit]
+      operationId: queryAudit
+      parameters:
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: entityId
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: OK
+  /demo/kpis:
+    get:
+      tags: [Demo]
+      operationId: demoKPIs
+      responses:
+        "200":
+          description: Demo KPI tile
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Locale:
+      name: Accept-Language
+      in: header
+      schema:
+        type: string
+        enum: [en, am]
+        default: en
+    PartyId:
+      name: partyId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    RegisterPartyRequest:
+      type: object
+      required: [fullName, phoneE164]
+      properties:
+        fullName: { type: string }
+        fullNameAm: { type: string }
+        phoneE164: { type: string }
+        email: { type: string }
+        dateOfBirth: { type: string, format: date }
+        gender: { type: string }
+        address:
+          $ref: "#/components/schemas/Address"
+    Address:
+      type: object
+      properties:
+        region: { type: string }
+        zone: { type: string }
+        woreda: { type: string }
+        kebele: { type: string }
+        line1: { type: string }
+        city: { type: string }
+    Party:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        fullName: { type: string }
+        fullNameAm: { type: string }
+        phoneE164: { type: string }
+        email: { type: string }
+        status: { type: string }
+        address:
+          $ref: "#/components/schemas/Address"
+        createdAt: { type: string, format: date-time }
+    Product:
+      type: object
+      properties:
+        code: { type: string }
+        name: { type: string }
+        nameAm: { type: string }
+        lob: { type: string }
+        version: { type: string }
+        coverTypes:
+          type: array
+          items: { type: string }
+    CreateQuoteRequest:
+      type: object
+      required: [partyId, productCode, risk]
+      properties:
+        partyId: { type: string }
+        productCode: { type: string, default: MOTOR-PRIVATE-COMP }
+        risk:
+          $ref: "#/components/schemas/MotorRisk"
+    MotorRisk:
+      type: object
+      required: [plateNumber, make, model, year, coverType, sumInsuredMinor]
+      properties:
+        plateNumber: { type: string }
+        chassisNumber: { type: string }
+        make: { type: string }
+        model: { type: string }
+        year: { type: integer }
+        usage: { type: string, enum: [private, commercial], default: private }
+        coverType: { type: string, enum: [comprehensive, third_party] }
+        sumInsuredMinor: { type: integer, description: ETB in cents (minor units) }
+    PremiumLine:
+      type: object
+      properties:
+        code: { type: string }
+        label: { type: string }
+        labelAm: { type: string }
+        amountMinor: { type: integer }
+    Quote:
+      type: object
+      properties:
+        id: { type: string }
+        partyId: { type: string }
+        productCode: { type: string }
+        status: { type: string }
+        risk:
+          $ref: "#/components/schemas/MotorRisk"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PremiumLine"
+        totalMinor: { type: integer }
+        currency: { type: string }
+        uwDecision: { type: string }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    BindResponse:
+      type: object
+      properties:
+        policy:
+          $ref: "#/components/schemas/Policy"
+        invoice:
+          $ref: "#/components/schemas/Invoice"
+    Invoice:
+      type: object
+      properties:
+        id: { type: string }
+        policyId: { type: string }
+        amountMinor: { type: integer }
+        currency: { type: string }
+        status: { type: string }
+    PaymentResult:
+      type: object
+      properties:
+        receiptId: { type: string }
+        channel: { type: string }
+        status: { type: string }
+        policy:
+          $ref: "#/components/schemas/Policy"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentMeta"
+    Policy:
+      type: object
+      properties:
+        id: { type: string }
+        policyNumber: { type: string }
+        quoteId: { type: string }
+        partyId: { type: string }
+        productCode: { type: string }
+        status: { type: string }
+        risk:
+          $ref: "#/components/schemas/MotorRisk"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PremiumLine"
+        totalMinor: { type: integer }
+        currency: { type: string }
+        effectiveFrom: { type: string, format: date }
+        effectiveTo: { type: string, format: date }
+        issuedAt: { type: string, format: date-time }
+    DocumentMeta:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string }
+        locale: { type: string }
+        url: { type: string }
+    FNOLRequest:
+      type: object
+      required: [policyId, lossDate, description]
+      properties:
+        policyId: { type: string }
+        lossDate: { type: string, format: date-time }
+        description: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        estimatedAmountMinor: { type: integer }
+        photoObjectKeys:
+          type: array
+          items: { type: string }
+    Claim:
+      type: object
+      properties:
+        id: { type: string }
+        claimNumber: { type: string }
+        policyId: { type: string }
+        status: { type: string }
+        track: { type: string }
+        settlementMinor: { type: integer }
+        currency: { type: string }
+        createdAt: { type: string, format: date-time }
+        settledAt: { type: string, format: date-time }

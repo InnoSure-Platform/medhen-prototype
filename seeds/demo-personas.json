@@ -1,0 +1,52 @@
+{
+  "tenantId": "eic",
+  "personas": [
+    {
+      "id": "abebe",
+      "role": "customer",
+      "fullName": "Abebe Kebede",
+      "fullNameAm": "አበበ ከበደ",
+      "phoneE164": "+251911234567",
+      "email": "abebe@example.et",
+      "address": {
+        "region": "Addis Ababa",
+        "zone": "Kirkos",
+        "woreda": "08",
+        "kebele": "15",
+        "city": "Addis Ababa",
+        "line1": "Bole Road"
+      },
+      "vehicle": {
+        "plateNumber": "AA-3-12345",
+        "chassisNumber": "JTDBR32E720000001",
+        "make": "Toyota",
+        "model": "Corolla",
+        "year": 2021,
+        "usage": "private",
+        "coverType": "comprehensive",
+        "sumInsuredETB": 1500000
+      }
+    },
+    {
+      "id": "facilitator-agent",
+      "role": "agent",
+      "keycloakUsername": "demo-agent",
+      "keycloakPassword": "medhen-demo",
+      "displayName": "EIC Branch Agent"
+    },
+    {
+      "id": "facilitator-claims",
+      "role": "claims",
+      "keycloakUsername": "demo-claims",
+      "keycloakPassword": "medhen-demo",
+      "displayName": "EIC Claims Handler"
+    }
+  ],
+  "fnol": {
+    "description": "Rear bumper scrape in Bole",
+    "descriptionAm": "ቦሌ ውስጥ የኋላ ባምፐር መጥለቅ",
+    "latitude": 8.9806,
+    "longitude": 38.7578,
+    "estimatedAmountETB": 25000
+  }
+}

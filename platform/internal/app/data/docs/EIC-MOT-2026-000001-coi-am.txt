@@ -1,0 +1,12 @@
+ETHIOPIAN INSURANCE CORPORATION
+መድህን · Medhen Platform — Phase 0
+
+የኢንሹራንስ የምስክር ወረቀት (am)
+Policy: EIC/MOT/2026/000001
+Insured: Test User
+Vehicle: Toyota Yaris 2020 · Plate AA-1-1
+Cover: comprehensive · Sum insured: 800000.00 ETB
+Premium: 32340.00 ETB
+Period: 2026-07-15 → 2027-07-14
+Ethiopian date: 22 Hidar 2020 / 22 ኅዳር 2020
+QR: medhen://policy/f5dc8805-cf12-47ca-b90c-c9a22770510e

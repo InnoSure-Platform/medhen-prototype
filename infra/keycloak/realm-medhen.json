@@ -1,0 +1,61 @@
+{
+  "realm": "medhen",
+  "enabled": true,
+  "displayName": "Medhen Platform",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "clients": [
+    {
+      "clientId": "pc-gateway",
+      "name": "Medhen Gateway",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*", "http://localhost:8080/*"],
+      "webOrigins": ["*"],
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "pc-web",
+      "name": "Medhen Web",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["*"],
+      "protocol": "openid-connect"
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "customer", "description": "Policyholder self-service" },
+      { "name": "agent", "description": "Intermediary / branch agent" },
+      { "name": "staff", "description": "EIC operations staff" },
+      { "name": "claims", "description": "Claims handler" },
+      { "name": "admin", "description": "Platform administrator" }
+    ]
+  },
+  "users": [
+    {
+      "username": "demo-agent",
+      "enabled": true,
+      "email": "agent@eic-et.com",
+      "firstName": "Demo",
+      "lastName": "Agent",
+      "credentials": [{ "type": "password", "value": "medhen-demo", "temporary": false }],
+      "realmRoles": ["agent", "staff"]
+    },
+    {
+      "username": "demo-claims",
+      "enabled": true,
+      "email": "claims@eic-et.com",
+      "firstName": "Demo",
+      "lastName": "Claims",
+      "credentials": [{ "type": "password", "value": "medhen-demo", "temporary": false }],
+      "realmRoles": ["claims", "staff"]
+    }
+  ]
+}
