@@ -1,0 +1,11 @@
+go 1.26.2
+
+use (
+	./libs/pc-auth-sdk
+	./libs/pc-contracts
+	./libs/pc-idempotency-mgmt-sdk
+	./libs/pc-telemetry-sdk
+	./services/pc-party-mgmt-svc
+	./services/pc-product-defn-svc
+	./tests/pc-integration-tests
+)

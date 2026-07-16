@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # ==============================
+  # Local Observability Stack
+  # ==============================
+  otel-collector:
+    image: otel/opentelemetry-collector:0.116.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+    depends_on:
+      - prometheus
+      - tempo
+
+  prometheus:
+    image: prom/prometheus:v3.0.0
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--enable-feature=remote-write-receiver'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  mimir:
+    image: grafana/mimir:2.15.0
+    command: ["-config.file=/etc/mimir.yaml"]
+    ports:
+      - "9009:9009"
+    volumes:
+      - ./mimir.yaml:/etc/mimir.yaml
+
+  tempo:
+    image: grafana/tempo:2.7.0
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
