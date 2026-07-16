@@ -13,12 +13,21 @@ import (
 	"github.com/InnoSure-Platform/pc-platform/internal/gatewayproxy"
 	"github.com/InnoSure-Platform/pc-platform/internal/httphandlers"
 	"github.com/InnoSure-Platform/pc-platform/internal/integration"
+	"github.com/InnoSure-Platform/pc-platform/internal/policyrelay"
+	"github.com/InnoSure-Platform/pc-platform/internal/reinsurance"
+	"github.com/InnoSure-Platform/pc-platform/internal/reporting"
 	"github.com/InnoSure-Platform/pc-platform/internal/runtime"
 	"github.com/InnoSure-Platform/pc-shared-go/httpx"
 )
 
 func Start(name, addr, mode string) {
 	ctx := context.Background()
+
+	// Initialize OpenTelemetry Tracing
+	tp, err := runtime.InitTracer(ctx, name)
+	if err == nil {
+		defer func() { _ = tp.Shutdown(ctx) }()
+	}
 	switch mode {
 	case "integration":
 		startIntegration(ctx, addr, name)
@@ -53,10 +62,46 @@ func startStandard(ctx context.Context, addr, name, mode string) {
 			api.MountFincrime(router)
 		case "gateway":
 			api.MountPublic(router)
+		case "reinsurance":
+			reinsurance.MountReinsurance(router, m.Repo)
+		case "reporting":
+			reporting.MountReporting(router, m.Repo)
 		default:
 			api.MountAll(router)
 		}
 	}
+	if mode == "policy" {
+		if brokers := os.Getenv("KAFKA_BROKERS"); brokers != "" {
+			var b []string
+			for _, p := range strings.Split(brokers, ",") {
+				if t := strings.TrimSpace(p); t != "" {
+					b = append(b, t)
+				}
+			}
+			go policyrelay.ConsumeDomainEvents(ctx, b, m)
+		}
+	} else if mode == "reinsurance" {
+		if brokers := os.Getenv("KAFKA_BROKERS"); brokers != "" {
+			var b []string
+			for _, p := range strings.Split(brokers, ",") {
+				if t := strings.TrimSpace(p); t != "" {
+					b = append(b, t)
+				}
+			}
+			go reinsurance.ConsumeDomainEvents(ctx, b, m.Repo)
+		}
+	} else if mode == "reporting" {
+		if brokers := os.Getenv("KAFKA_BROKERS"); brokers != "" {
+			var b []string
+			for _, p := range strings.Split(brokers, ",") {
+				if t := strings.TrimSpace(p); t != "" {
+					b = append(b, t)
+				}
+			}
+			go reporting.ConsumeCQRS(ctx, b, m.Repo)
+		}
+	}
+	
 	r.Route("/api/v1", mount)
 	r.Route("/internal/v1", mount)
 	runtime.Listen(name, addr, r)

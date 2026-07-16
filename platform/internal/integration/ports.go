@@ -37,8 +37,18 @@ func (m *MockSMS) Send(to, body string) error {
 }
 
 type FaydaProfile struct {
-	FullName string
-	Status   string
+	Status   string `json:"status"` // ACTIVE, INACTIVE, DECEASED
+	FullName string `json:"fullName"`
+	DOB      string `json:"dob"`
+}
+
+type InnoGuardClient interface {
+	ScreenEntity(entityID, entityType string) (ScreeningResult, error)
+}
+
+type ScreeningResult struct {
+	Status string // CLEARED, FLAG_SANCTION, FLAG_PEP
+	Details string
 }
 
 type FaydaClient interface {
@@ -57,9 +67,14 @@ func (MockFayda) Verify(nationalID string) (*FaydaProfile, error) {
 	if nationalID == "" {
 		return nil, fmt.Errorf("invalid national ID")
 	}
-	// Default mock behavior
 	return &FaydaProfile{
 		FullName: "Verified Citizen",
 		Status:   "ACTIVE",
 	}, nil
+}
+
+type MockInnoGuard struct{}
+
+func (m MockInnoGuard) ScreenEntity(entityID, entityType string) (ScreeningResult, error) {
+	return ScreeningResult{Status: "CLEARED", Details: "Mock cleared"}, nil
 }

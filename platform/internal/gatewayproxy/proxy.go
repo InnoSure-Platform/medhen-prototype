@@ -32,6 +32,8 @@ func Mount(r chi.Router) {
 	r.Handle("/api/v1/claims/*", proxy("CLAIMS_URL", "http://localhost:8106"))
 	r.Handle("/api/v1/audit", proxy("AUDIT_URL", "http://localhost:8117"))
 	r.Handle("/api/v1/fincrime/*", proxy("FINCRIME_URL", "http://localhost:8114"))
+	r.Handle("/api/v1/reinsurance/*", proxy("REINSURANCE_URL", "http://localhost:8112"))
+	r.Handle("/api/v1/reporting/*", proxy("REPORTING_URL", "http://localhost:8111"))
 	r.Get("/api/v1/health", runtime.Health("pc-gateway"))
 }
 

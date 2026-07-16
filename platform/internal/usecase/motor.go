@@ -460,13 +460,8 @@ func (m *Motor) SettleClaim(ctx context.Context, claimID, actor, idemKey string,
 		return nil, err
 	}
 	
-	if cl.Track == "TOTAL_LOSS" {
-		_ = m.CancelPolicy(ctx, CancelPolicyCmd{
-			PolicyID: pol.ID,
-			Actor:    actor,
-			Reason:   "Total Loss Exhaustion",
-		})
-	}
+	// Policy cancellation for TOTAL_LOSS is now handled asynchronously
+	// by the policyrelay consuming the pc.claim.settled.v1 event.
 
 	if party, err := m.Repo.GetParty(ctx, pol.PartyID); err == nil && m.SMS != nil {
 		_ = m.SMS.Send(party.PhoneE164, i18n.T("claim.settled", i18n.EN))
