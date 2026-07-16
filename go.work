@@ -1,9 +1,11 @@
 go 1.26.2
 
 use (
-	"./Platform Core/dev/libs/pc-contracts"
-	"./Platform Core/dev/services/pc-product-defn-svc"
-	"./Platform Core/dev/tests/pc-integration-tests"
-	./platform
-	./shared/go
+	./libs/pc-auth-sdk
+	./libs/pc-contracts
+	./libs/pc-idempotency-mgmt-sdk
+	./libs/pc-telemetry-sdk
+	./services/pc-party-mgmt-svc
+	./services/pc-product-defn-svc
+	./tests/pc-integration-tests
 )
