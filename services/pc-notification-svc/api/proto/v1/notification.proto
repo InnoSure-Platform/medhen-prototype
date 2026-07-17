@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package medhen.platform.notification.v1;
+
+option go_package = "pc-notification-svc/api/proto/v1;notificationpb";
+
+service NotificationService {
+  // Dispatches an ad-hoc notification outside the domain event lifecycle
+  rpc DispatchAdHoc(DispatchAdHocRequest) returns (DispatchAdHocResponse);
+  
+  // Gets historical notifications for a specific party
+  rpc GetNotificationHistory(GetNotificationHistoryRequest) returns (GetNotificationHistoryResponse);
+  
+  // Webhook intake from the Integration ACL
+  rpc UpdateDeliveryStatus(UpdateDeliveryStatusRequest) returns (UpdateDeliveryStatusResponse);
+}
+
+message DispatchAdHocRequest {
+  string tenant_id = 1;
+  string party_id = 2;
+  string template_code = 3;
+  string context_json = 4;
+}
+
+message DispatchAdHocResponse {
+  string notification_id = 1;
+}
+
+message GetNotificationHistoryRequest {
+  string party_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message GetNotificationHistoryResponse {
+  message NotificationView {
+    string id = 1;
+    string template_code = 2;
+    string channel = 3;
+    string status = 4;
+    string created_at = 5;
+  }
+  repeated NotificationView notifications = 1;
+}
+
+message UpdateDeliveryStatusRequest {
+  string notification_id = 1;
+  string status = 2;
+  string vendor_receipt = 3;
+  string error_reason = 4;
+}
+
+message UpdateDeliveryStatusResponse {}

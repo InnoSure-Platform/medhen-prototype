@@ -1,0 +1,32 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: medhen-global-rate-limit
+  namespace: default
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: medhen-gateway
+  rateLimit:
+    type: Global
+    global:
+      rules:
+        - limit:
+            requests: 1000
+            unit: Second
+        - clientSelectors:
+            - headers:
+                - name: x-user-id
+          limit:
+            requests: 50
+            unit: Second
+  retry:
+    retryOn:
+      triggers:
+        - "5xx"
+        - "gateway-error"
+        - "reset"
+    numRetries: 3
+    perRetry:
+      timeout: 2s

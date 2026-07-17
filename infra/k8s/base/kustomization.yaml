@@ -9,4 +9,6 @@ resources:
   - pc-party-mgmt-svc/service.yaml
   - pc-product-defn-svc/deployment.yaml
   - pc-product-defn-svc/service.yaml
+  - pc-workflow-svc/deployment.yaml
+  - pc-workflow-svc/service.yaml
   - ../../pc-gateway/k8s

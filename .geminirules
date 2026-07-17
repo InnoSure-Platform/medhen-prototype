@@ -1,0 +1,14 @@
+# Go Testing Best Practices
+
+## Test File Placement
+- **Location**: Test files must always be placed in the exact same directory as the source code they are testing. 
+- **Naming**: The test file name must end with `_test.go` (e.g., `rating_service_test.go` next to `rating_service.go`).
+- **No Separate Test Directories**: Do not place tests in a separate `tests/` or `e2e/` folder at the root of the project unless explicitly required by an external framework that cannot be configured otherwise.
+
+## Package Naming within Test Files
+- **Black-box Testing (Preferred for external APIs)**: Use the `_test` suffix for the package name (e.g., `package app_test` for testing code in `package app`). This ensures the tests only interact with exported identifiers.
+- **White-box Testing (For internal logic)**: Use the exact same package name as the code being tested if you need access to unexported (private) functions or variables.
+
+## Integration Tests
+- Integration tests (like those using testcontainers or godog) should also live adjacent to the entry points they test (e.g., `services/pc-product-defn-svc/app/`).
+- They must be part of the service's `go.mod` file and dependencies, rather than forming a separate top-level go module.

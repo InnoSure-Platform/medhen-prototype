@@ -11,6 +11,15 @@ spec:
         - path:
             type: PathPrefix
             value: /api/pc-iam-svc/
+      timeouts:
+        request: 5s
+        backendRequest: 2s
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              - name: x-medhen-gateway-processed
+                value: "true"
       backendRefs:
         - name: pc-iam-svc
           port: 8080
@@ -18,6 +27,15 @@ spec:
         - path:
             type: PathPrefix
             value: /api/pc-party-mgmt-svc/
+      timeouts:
+        request: 5s
+        backendRequest: 2s
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              - name: x-medhen-gateway-processed
+                value: "true"
       backendRefs:
         - name: pc-party-mgmt-svc
           port: 8080
@@ -25,6 +43,15 @@ spec:
         - path:
             type: PathPrefix
             value: /api/pc-product-defn-svc/
+      timeouts:
+        request: 5s
+        backendRequest: 2s
+      filters:
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            add:
+              - name: x-medhen-gateway-processed
+                value: "true"
       backendRefs:
         - name: pc-product-defn-svc
           port: 8080
@@ -42,6 +69,9 @@ spec:
         - path:
             type: PathPrefix
             value: /auth/
+      timeouts:
+        request: 5s
+        backendRequest: 2s
       backendRefs:
         - name: keycloak
           port: 80

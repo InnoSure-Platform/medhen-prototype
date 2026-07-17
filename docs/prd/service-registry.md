@@ -71,7 +71,7 @@ The platform is named **Medhen** (built for EIC). Its core is a **product-agnost
 | 12 | `pc-underwriting-svc` | BC-MDH-05 | Tier-1 | P1 | 0 (STP) | Y | product (sync), party (sync) |
 | 13 | `pc-policy-svc` | BC-MDH-03 | Tier-0 | P0 | 0 | Y | party (sync), product (sync), rating (sync), underwriting (sync), billing (evt/saga) |
 | 14 | `pc-billing-svc` | BC-MDH-07 | Tier-0 | P0 | 0 | Y | integration/payments (sync), policy (evt), shared-go (lib) |
-| 15 | `pc-document-svc` | BC-MDH-08 | Tier-1 | P1 | 0 | Y | product/templates (sync), policy·billing·claims (evt), shared-go/i18n (lib), MinIO |
+| 15 | `pc-document-mgmt-svc` | BC-MDH-08 | Tier-1 | P1 | 0 | Y | product/templates (sync), policy·billing·claims (evt), shared-go/i18n (lib), MinIO |
 | 16 | `pc-notification-svc` | BC-MDH-10 | Tier-2 | P1 | 0 | Y | integration/SMS (sync), all services (evt) |
 | 17 | `pc-workflow-svc` | BC-MDH-09 | Tier-1 | P1 | 1 | ~ | iam (sync) |
 | 18 | `pc-claims-svc` | BC-MDH-06 | Tier-0 | P0 | 0 (fast-track) | Y | policy (sync), party (sync), billing (evt/saga), fincrime (evt, soft) |
@@ -168,7 +168,7 @@ The Phase 0 pilot builds **only the services the Motor buy→claim demo exercise
 | 12 | `pc-underwriting-svc` | Auto-accept STP |
 | 13 | `pc-policy-svc` | Quote → bind → issue |
 | 14 | `pc-billing-svc` | Telebirr sandbox payment + receipt (single premium) |
-| 15 | `pc-document-svc` | Schedule + COI + QR sticker, bilingual |
+| 15 | `pc-document-mgmt-svc` | Schedule + COI + QR sticker, bilingual |
 | 16 | `pc-notification-svc` | SMS/email on bind + settle |
 | 17 | `pc-claims-svc` | Mobile FNOL → fast-track settlement |
 | 18 | `pc-web` | Portal screens for the above (incremental) |
@@ -196,7 +196,7 @@ services:
   - id: underwriting, repo: pc-underwriting-svc, bc: BC-MDH-05, tier: 1,      priority: P1, phase: 0, pilot: true,  order: 12, depends_on: [product, party]
   - id: policy,       repo: pc-policy-svc,      bc: BC-MDH-03,  tier: 0,      priority: P0, phase: 0, pilot: true,  order: 13, depends_on: [party, product, rating, underwriting, billing]
   - id: billing,      repo: pc-billing-svc,     bc: BC-MDH-07,  tier: 0,      priority: P0, phase: 0, pilot: true,  order: 14, depends_on: [integration, policy]
-  - id: document,     repo: pc-document-svc,    bc: BC-MDH-08,  tier: 1,      priority: P1, phase: 0, pilot: true,  order: 15, depends_on: [product, policy, kernel]
+  - id: document,     repo: pc-document-mgmt-svc,    bc: BC-MDH-08,  tier: 1,      priority: P1, phase: 0, pilot: true,  order: 15, depends_on: [product, policy, kernel]
   - id: notification, repo: pc-notification-svc, bc: BC-MDH-10, tier: 2,      priority: P1, phase: 0, pilot: true,  order: 16, depends_on: [integration]
   - id: workflow,     repo: pc-workflow-svc,    bc: BC-MDH-09,  tier: 1,      priority: P1, phase: 1, pilot: partial, order: 17, depends_on: [iam]
   - id: claims,       repo: pc-claims-svc,      bc: BC-MDH-06,  tier: 0,      priority: P0, phase: 0, pilot: true,  order: 18, depends_on: [policy, party, billing]

@@ -254,7 +254,7 @@ Medhen owns **20 services** organised into **20 Bounded Contexts**, covering fiv
 | `BC-MDH-05` | Underwriting | `pc-underwriting-svc` | Transactional Core | Tier-1 | 1 |
 | `BC-MDH-06` | Claims Management | `pc-claims-svc` | Transactional Core | Tier-0 | 1 |
 | `BC-MDH-07` | Billing & Payments | `pc-billing-svc` | Transactional Core | Tier-0 | 1 |
-| `BC-MDH-08` | Document Management | `pc-document-svc` | Servicing | Tier-1 | 1 |
+| `BC-MDH-08` | Document Management | `pc-document-mgmt-svc` | Servicing | Tier-1 | 1 |
 | `BC-MDH-09` | Workflow & Approvals | `pc-workflow-svc` | Operations (Control) | Tier-1 | 1 |
 | `BC-MDH-10` | Notifications | `pc-notification-svc` | Servicing (Async) | Tier-2 | 1 |
 | `BC-MDH-11` | Reporting & Analytics | `pc-reporting-svc` | Operations | Tier-1 | 2 |
@@ -1293,12 +1293,12 @@ While Medhen is single-organization (EIC), it is engineered with tenancy primiti
 
 ---
 
-## BC-MDH-08 — Document Management (pc-document-svc)
+## BC-MDH-08 — Document Management (pc-document-mgmt-svc)
 
 | Field | Value |
 |---|---|
 | **BC ID** | `BC-MDH-08` |
-| **Owning Service** | `pc-document-svc` |
+| **Owning Service** | `pc-document-mgmt-svc` |
 | **Plane** | Servicing |
 | **Tier** | Tier-1 |
 | **Phase** | Phase 1 |
@@ -2776,7 +2776,7 @@ Efficient shared-core operation (one platform vs. many) reduces compute footprin
 | `pc-underwriting-svc` | BC-MDH-05 | 1 | 1 |
 | `pc-claims-svc` | BC-MDH-06 | 0 | 1 |
 | `pc-billing-svc` | BC-MDH-07 | 0 | 1 |
-| `pc-document-svc` | BC-MDH-08 | 1 | 1 |
+| `pc-document-mgmt-svc` | BC-MDH-08 | 1 | 1 |
 | `pc-workflow-svc` | BC-MDH-09 | 1 | 1 |
 | `pc-notification-svc` | BC-MDH-10 | 2 | 1 |
 | `pc-reporting-svc` | BC-MDH-11 | 1 | 2 |

@@ -1035,7 +1035,7 @@ Every functional `REQ` states acceptance criteria in **Given-When-Then** form so
 
 ## 14. Module: Document Management (DOC)
 
-> **Bounded Context:** [`BC-MDH-08`](./Medhen-Platform-Capability-Document.md#bc-mdh-08--document-management-pc-document-svc) · **Service:** `pc-document-svc` · **Database:** `pc_document_db` + MinIO
+> **Bounded Context:** [`BC-MDH-08`](./Medhen-Platform-Capability-Document.md#bc-mdh-08--document-management-pc-document-mgmt-svc) · **Service:** `pc-document-mgmt-svc` · **Database:** `pc_document_db` + MinIO
 > **Capability source:** Cap doc Part III, BC-MDH-08 · **PDD source:** [§10 Module 8](./product_definition_document.md) · **Phase:** 1 (core)
 
 ### 14.0 Mission Statement

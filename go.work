@@ -11,5 +11,6 @@ use (
 	./services/pc-observability-svc
 	./services/pc-party-mgmt-svc
 	./services/pc-product-defn-svc
-	./tests/pc-integration-tests
+	./services/pc-rating-calc-svc
+	./services/pc-workflow-svc
 )

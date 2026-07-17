@@ -1,0 +1,29 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: medhen-coraza-waf
+  namespace: default
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: medhen-gateway
+  wasm:
+    - name: coraza
+      rootID: ""
+      code:
+        type: Image
+        image:
+          url: ghcr.io/corazawaf/coraza-proxy-wasm/coraza-proxy-wasm:0.5.0
+      config: |
+        {
+          "directives_map": {
+            "default": [
+              "SecDebugLogLevel 3",
+              "SecRuleEngine DetectionOnly",
+              "Include @crs-setup-conf",
+              "Include @owasp_crs/*.conf"
+            ]
+          },
+          "default_directives": "default"
+        }

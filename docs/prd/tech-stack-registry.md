@@ -196,6 +196,7 @@ when you provision the prod data tier. Clients and app code don't change either 
 | ---- | ------ | ------------ |
 | **gRPC** (HTTP/2 + protobuf) | ✅📐 | Internal service-to-service (ADR-PC-004) |
 | **REST / OpenAPI 3.1** | ✅📐 | Customer-facing product APIs (FIP & AML each expose their own) |
+| **Server-Sent Events (SSE)** | 📐 | Unidirectional real-time UI updates (e.g. notifications over HTTP/2) |
 | **Kong** (API gateway) | 🔧 | North-south edge: per-customer API keys, rate-limit→HTTP 429, channel-header extraction, tracing — matches the Arch Pack "API Gateway" layer ([api-gateway-kong.md](./api-gateway-kong.md)) |
 | **Traefik** (edge ingress) | 🔧 | TLS edge in front of Kong; dashboards/infra bypass Kong ([ingress-tls-hardening.md](./ingress-tls-hardening.md)) |
 | **Istio / Linkerd** (service mesh) | 📐🧪 | East-west mTLS, traffic shaping, retry/timeout (ADR-PC-015). Complements Kong (north-south); choice not locked |
@@ -352,7 +353,7 @@ data:        { rdbms: postgresql-18, cache: redis-8 (valkey-8 option),
 messaging:   { broker: kafka-4.x-kraft, client: twmb-franz-go, schema: apicurio-registry-3.x (ccompat),
                format: [avro, protobuf], cdc: debezium-3.x }
 compute:     { batch: spark-3.5, stream: flink-1.20-lts, catalog: [rest, nessie, polaris] (tbd) }
-api:         { internal: grpc, external: rest-openapi-3.1, gateway: kong, mesh: [istio, linkerd] }
+api:         { internal: grpc, external: rest-openapi-3.1, realtime: sse, gateway: kong, mesh: [istio, linkerd] }
 security:    { iam: keycloak-26, secrets: openbao-2 (not-vault), certs: cert-manager-1.17, model: zero-trust-mtls-1.3 }
 observability: { sdk: opentelemetry, pipeline: otel-collector, metrics_store: grafana-mimir,
                scraper: prometheus-3 (remote_write), logs: loki-3, traces: tempo-2, ui: grafana-11 }

@@ -132,6 +132,7 @@ flowchart TB
 ### 4.2 Backend-For-Frontend (BFF) (`FR-GW-BFF-*`)
 - **FR-GW-BFF-1 — Payload Aggregation:** The gateway SHALL provide endpoints that fan-out requests to multiple underlying services (e.g., fetching User Profile from `pc-party-mgmt-svc` and Roles from `pc-iam-svc`) and aggregate them into a single JSON response for the frontend.
 - **FR-GW-BFF-2 — Field Filtering:** Support GraphQL-like field selection or hardcoded response pruning to minimize payload sizes for mobile clients.
+- **FR-GW-BFF-3 — Real-Time Streaming:** The gateway SHALL support Server-Sent Events (SSE) by keeping long-lived HTTP connections open (with appropriate idle timeouts) to push real-time updates from backend services to the UI without requiring WebSockets.
 
 ### 4.3 Resilience (`FR-GW-RES-*`)
 - **FR-GW-RES-1 — Circuit Breaking:** Implement circuit breakers to prevent cascading failures if a backend service (e.g., `pc-product-defn-svc`) becomes unresponsive.

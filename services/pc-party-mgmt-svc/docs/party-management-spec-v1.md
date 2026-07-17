@@ -475,7 +475,7 @@ Driven asynchronously via Debezium CDC + Kafka Sink Connector.
 | **Fayda API (National ID)** | REST API (via `BC-MDH-18` API Gateway) | Sync (Inbound) | If Fayda is unreachable (Circuit Breaker OPEN), registrations succeed but KYC defaults to `PENDING`. Manual verification workflow absorbs the load. |
 | **`pc-iam-svc` (Auth)**| gRPC `VerifyToken` / `LinkUser` | Sync | Hard dependency for API calls. Cached JWT validation locally. |
 | **`pc-fincrime-svc`** | Kafka `pc.party.created.v1` | Async | Non-blocking at creation. However, FinCrime emits a hit event that gates policy binding downstream if unresolved. |
-| **`pc-document-svc`** | MinIO S3 API | Sync | Required for KYC uploads. Uploads fail if object storage is offline. |
+| **`pc-document-mgmt-svc`** | MinIO S3 API | Sync | Required for KYC uploads. Uploads fail if object storage is offline. |
 
 ---
 

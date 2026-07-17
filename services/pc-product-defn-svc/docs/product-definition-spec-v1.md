@@ -106,7 +106,7 @@ The service owns the following strict responsibilities:
 * Rate calculation execution (owned by `pc-rating-calc-svc`, which pulls tables from `svc-10`).
 * Underwriting execution (owned by `pc-underwriting-svc`).
 * Workflow approval orchestration (owned by the workflow engine).
-* Document generation (owned by `pc-document-svc`).
+* Document generation (owned by `pc-document-mgmt-svc`).
 
 ### 1.6 Bounded Context Responsibilities (`BC-MDH-02`)
 
@@ -134,7 +134,7 @@ flowchart TB
         POL["pc-policy-svc (BC-MDH-03)"]
         RAT["pc-rating-calc-svc (BC-MDH-04)"]
         UWE["pc-underwriting-svc (BC-MDH-05)"]
-        DOC["pc-document-svc (BC-MDH-08)"]
+        DOC["pc-document-mgmt-svc (BC-MDH-08)"]
     end
 
     subgraph Workflow["Approval Sagas"]

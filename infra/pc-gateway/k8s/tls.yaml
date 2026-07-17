@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: medhen-gateway-cert
+  namespace: default
+spec:
+  secretName: medhen-tls-secret
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - api.medhen.local
+    - localhost

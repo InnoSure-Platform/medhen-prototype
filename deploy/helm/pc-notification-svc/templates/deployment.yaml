@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pc-notification-svc.fullname" . }}
+  labels:
+    app: {{ include "pc-notification-svc.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "pc-notification-svc.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "pc-notification-svc.name" . }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.service.grpcPort }}
+            - name: http
+              containerPort: {{ .Values.service.httpPort }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "pc-notification-svc.fullname" . }}-config
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
