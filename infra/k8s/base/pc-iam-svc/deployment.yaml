@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pc-iam-svc
+  labels:
+    app: pc-iam-svc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pc-iam-svc
+  template:
+    metadata:
+      labels:
+        app: pc-iam-svc
+    spec:
+      containers:
+        # Main IAM Service
+        - name: iam-svc
+          image: medhen/pc-iam-svc:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http-rest
+            - containerPort: 9090
+              name: grpc-api
+          env:
+            - name: KEYCLOAK_URL
+              value: "http://keycloak.medhen-iam.svc.cluster.local:80/auth"
+            - name: KEYCLOAK_USER
+              value: "admin"
+            - name: KEYCLOAK_PASSWORD
+              value: "admin123"
+            - name: OPA_URL
+              value: "http://localhost:8181"
+            - name: DATABASE_URL
+              value: "postgres://postgres:postgres@postgres.medhen-iam.svc.cluster.local:5432/iam?sslmode=disable"
+        
+        # OPA Sidecar injected for lightning fast local evaluation
+        - name: opa
+          image: openpolicyagent/opa:latest-envoy
+          args:
+            - "run"
+            - "--server"
+            - "--addr=0.0.0.0:8181"
+            - "--set=decision_logs.console=true"
+            - "/policies"
+          ports:
+            - containerPort: 8181
+              name: opa-http
+          volumeMounts:
+            - readOnly: true
+              mountPath: /policies
+              name: opa-policies
+      volumes:
+        - name: opa-policies
+          configMap:
+            name: opa-policies-config

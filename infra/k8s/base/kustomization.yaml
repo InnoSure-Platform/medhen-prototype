@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - opa/policies-cm.yaml
+  - pc-iam-svc/deployment.yaml
+  - pc-iam-svc/service.yaml
+  - pc-party-mgmt-svc/deployment.yaml
+  - pc-party-mgmt-svc/service.yaml
+  - pc-product-defn-svc/deployment.yaml
+  - pc-product-defn-svc/service.yaml
+  - ../../pc-gateway/k8s

@@ -9,23 +9,30 @@ import (
 	"github.com/google/uuid"
 	"github.com/medhen/pc-party-mgmt-svc/internal/application/command"
 	"github.com/medhen/pc-party-mgmt-svc/internal/application/query"
+	"github.com/medhen/pc-party-mgmt-svc/internal/domain"
 )
 
 type PartyHandler struct {
-	registerCmd *command.RegisterPartyHandler
-	addAddrCmd  *command.AddAddressHandler
-	query360    *query.Customer360QueryService
+	registerCmd      *command.RegisterPartyHandler
+	addAddrCmd       *command.AddAddressHandler
+	updateConsentCmd *command.UpdateConsentHandler
+	anonymizeCmd     *command.AnonymizePartyHandler
+	query360         *query.Customer360QueryService
 }
 
 func NewPartyHandler(
 	registerCmd *command.RegisterPartyHandler, 
 	addAddrCmd *command.AddAddressHandler,
+	updateConsentCmd *command.UpdateConsentHandler,
+	anonymizeCmd *command.AnonymizePartyHandler,
 	query360 *query.Customer360QueryService,
 ) *PartyHandler {
 	return &PartyHandler{
-		registerCmd: registerCmd,
-		addAddrCmd:  addAddrCmd,
-		query360:    query360,
+		registerCmd:      registerCmd,
+		addAddrCmd:       addAddrCmd,
+		updateConsentCmd: updateConsentCmd,
+		anonymizeCmd:     anonymizeCmd,
+		query360:         query360,
 	}
 }
 
@@ -134,8 +141,74 @@ func (h *PartyHandler) GetCustomer360(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(view)
 }
 
+type UpdateConsentRequest struct {
+	ConsentType string `json:"consent_type"`
+	Status      string `json:"status"`
+}
+
+func (h *PartyHandler) UpdateConsent(w http.ResponseWriter, r *http.Request) {
+	partyIDStr := chi.URLParam(r, "id")
+	partyID, err := uuid.Parse(partyIDStr)
+	if err != nil {
+		http.Error(w, "invalid party ID", http.StatusBadRequest)
+		return
+	}
+
+	var req UpdateConsentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cmd := command.UpdateConsentCommand{
+		PartyID:     partyID,
+		ConsentType: req.ConsentType,
+		Status:      domain.ConsentStatus(req.Status),
+	}
+
+	if err := h.updateConsentCmd.Handle(r.Context(), cmd); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type ErasureRequest struct {
+	Reason string `json:"reason"`
+}
+
+func (h *PartyHandler) RequestErasure(w http.ResponseWriter, r *http.Request) {
+	partyIDStr := chi.URLParam(r, "id")
+	partyID, err := uuid.Parse(partyIDStr)
+	if err != nil {
+		http.Error(w, "invalid party ID", http.StatusBadRequest)
+		return
+	}
+
+	var req ErasureRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cmd := command.AnonymizePartyCommand{
+		PartyID: partyID,
+		Reason:  req.Reason,
+	}
+
+	if err := h.anonymizeCmd.Handle(r.Context(), cmd); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *PartyHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/parties/individuals", h.RegisterIndividual)
 	r.Post("/parties/{id}/addresses", h.AddAddress)
 	r.Get("/parties/{id}/360", h.GetCustomer360)
+	r.Put("/parties/{id}/consents", h.UpdateConsent)
+	r.Post("/parties/{id}/erasure-request", h.RequestErasure)
 }

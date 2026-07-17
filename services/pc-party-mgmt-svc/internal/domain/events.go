@@ -12,6 +12,8 @@ const (
 	EventTypePartyCreated      EventType = "PartyCreated"
 	EventTypePartyUpdated      EventType = "PartyUpdated"
 	EventTypePartyMerged       EventType = "PartyMerged"
+	EventTypePartyConsentUpdated EventType = "PartyConsentUpdated"
+	EventTypePartyAnonymized   EventType = "PartyAnonymized"
 	EventTypeKYCStatusEvaluated EventType = "KYCStatusEvaluated"
 )
 
@@ -45,3 +47,29 @@ type PartyMergedEvent struct {
 func (e PartyMergedEvent) EventID() uuid.UUID { return e.ID }
 func (e PartyMergedEvent) EventType() EventType { return EventTypePartyMerged }
 func (e PartyMergedEvent) OccurredAt() time.Time { return e.OccurredAtTime }
+
+type PartyConsentUpdatedEvent struct {
+	ID             uuid.UUID
+	TenantID       string
+	PartyID        uuid.UUID
+	ConsentType    string
+	Status         string
+	Version        int
+	OccurredAtTime time.Time
+}
+
+func (e PartyConsentUpdatedEvent) EventID() uuid.UUID { return e.ID }
+func (e PartyConsentUpdatedEvent) EventType() EventType { return EventTypePartyConsentUpdated }
+func (e PartyConsentUpdatedEvent) OccurredAt() time.Time { return e.OccurredAtTime }
+
+type PartyAnonymizedEvent struct {
+	ID             uuid.UUID
+	TenantID       string
+	PartyID        uuid.UUID
+	Reason         string
+	OccurredAtTime time.Time
+}
+
+func (e PartyAnonymizedEvent) EventID() uuid.UUID { return e.ID }
+func (e PartyAnonymizedEvent) EventType() EventType { return EventTypePartyAnonymized }
+func (e PartyAnonymizedEvent) OccurredAt() time.Time { return e.OccurredAtTime }

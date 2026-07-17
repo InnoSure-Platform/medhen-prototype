@@ -21,9 +21,11 @@ import (
 	
 	"github.com/medhen/pc-telemetry-sdk"
 	"github.com/medhen/pc-auth-sdk"
+	idempotency "github.com/medhen/pc-idempotency-mgmt-sdk"
 
 	"net"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	productpb "github.com/medhen/pc-contracts/gen/go/product/v1"
 	productgrpc "github.com/medhen/pc-product-defn-svc/internal/presentation/grpc"
 	"github.com/medhen/pc-product-defn-svc/internal/application/query"
@@ -129,14 +131,34 @@ func main() {
 	authCfg := auth.JWTConfig{SecretKey: "dev-secret-key"}
 	r.Use(auth.Middleware(authCfg))
 
+	// Idempotency SDK Integration
+	idempCfg := idempotency.Config{RedisURL: "redis://localhost:6379"}
+	idempMgr, err := idempotency.NewManager(idempCfg)
+	var idempMiddleware func(http.Handler) http.Handler
+	if err != nil {
+		slog.Warn("Failed to connect to Redis for idempotency", "error", err)
+		idempMiddleware = func(next http.Handler) http.Handler { return next }
+	} else {
+		idempMiddleware = idempMgr.Middleware
+	}
+
 	productHandler := rest.NewProductHandler(createProductCmd)
-	productHandler.RegisterRoutes(r, nil)
+	productHandler.RegisterRoutes(r, idempMiddleware)
 
 	// Initialize Query Handlers
 	getProductQuery := query.NewGetProductHandler(productRepo)
 
+	// Add TLS Certs
+	certFile := "../../certs/server.crt"
+	keyFile := "../../certs/server.key"
+
 	// Start gRPC Server
-	grpcServer := grpc.NewServer()
+	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if err != nil {
+		slog.Error("Failed to load TLS keys for gRPC", "error", err)
+		os.Exit(1)
+	}
+	grpcServer := grpc.NewServer(grpc.Creds(creds))
 	productpb.RegisterProductQueryServiceServer(grpcServer, productgrpc.NewServer(getProductQuery))
 	
 	go func() {
@@ -145,7 +167,7 @@ func main() {
 			slog.Error("Failed to listen for gRPC", "error", err)
 			os.Exit(1)
 		}
-		slog.Info("gRPC server listening", "addr", ":9091")
+		slog.Info("gRPC server listening (TLS)", "addr", ":9091")
 		if err := grpcServer.Serve(lis); err != nil {
 			slog.Error("gRPC server failed", "error", err)
 		}
@@ -158,8 +180,8 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("HTTP server listening", "addr", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Info("HTTP server listening (HTTPS)", "addr", srv.Addr)
+		if err := srv.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
 			slog.Error("HTTP server failed", "error", err)
 		}
 	}()

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opa-policies-config
+data:
+  authz.rego: |
+    package medhen.authz
+    
+    default allow = false
+    
+    # Simple mock policy
+    allow {
+        input.action == "READ_PRODUCT"
+    }
+    
+    allow {
+        input.action == "CREATE_PARTY"
+        input.attributes.roles[_] == "admin"
+    }

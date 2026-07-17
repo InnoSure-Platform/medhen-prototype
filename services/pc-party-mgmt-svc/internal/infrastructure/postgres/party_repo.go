@@ -16,6 +16,7 @@ import (
 type DB interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
 type PartyRepository struct {
@@ -76,6 +77,23 @@ func saveParty(ctx context.Context, db DB, party *domain.Party) error {
 	if tag.RowsAffected() == 0 {
 		return errors.New("optimistic locking failure or duplicate issue")
 	}
+
+	for _, c := range party.Consents {
+		cQuery := `
+			INSERT INTO party_consents (party_id, consent_type, status, version, updated_at)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (party_id, consent_type) DO UPDATE SET
+				status = EXCLUDED.status,
+				version = EXCLUDED.version,
+				updated_at = EXCLUDED.updated_at
+			WHERE party_consents.version < EXCLUDED.version;
+		`
+		_, err = db.Exec(ctx, cQuery, c.PartyID, c.ConsentType, c.Status, c.Version, c.UpdatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to save consent: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -105,7 +123,14 @@ func findByID(ctx context.Context, db DB, id uuid.UUID) (*domain.Party, error) {
 		WHERE id = $1
 	`
 	row := db.QueryRow(ctx, query, id)
-	return scanParty(row)
+	p, err := scanParty(row)
+	if err != nil {
+		return nil, err
+	}
+	if err := loadConsents(ctx, db, p); err != nil {
+		return nil, fmt.Errorf("failed to load consents: %w", err)
+	}
+	return p, nil
 }
 
 func (r *PartyRepository) FindByNationalID(ctx context.Context, tenantID, nationalID string) (*domain.Party, error) {
@@ -127,7 +152,14 @@ func findByNationalID(ctx context.Context, db DB, tenantID, nationalID string) (
 		LIMIT 1
 	`
 	row := db.QueryRow(ctx, query, tenantID, nationalID)
-	return scanParty(row)
+	p, err := scanParty(row)
+	if err != nil {
+		return nil, err
+	}
+	if err := loadConsents(ctx, db, p); err != nil {
+		return nil, fmt.Errorf("failed to load consents: %w", err)
+	}
+	return p, nil
 }
 
 func scanParty(row pgx.Row) (*domain.Party, error) {
@@ -162,4 +194,24 @@ func scanParty(row pgx.Row) (*domain.Party, error) {
 	p.SurvivingPartyID = survivingPartyID
 
 	return &p, nil
+}
+
+func loadConsents(ctx context.Context, db DB, p *domain.Party) error {
+	query := `SELECT consent_type, status, version, updated_at FROM party_consents WHERE party_id = $1`
+	rows, err := db.Query(ctx, query, p.ID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var c domain.ConsentRecord
+		c.PartyID = p.ID
+		err := rows.Scan(&c.ConsentType, &c.Status, &c.Version, &c.UpdatedAt)
+		if err != nil {
+			return err
+		}
+		p.Consents = append(p.Consents, c)
+	}
+	return rows.Err()
 }

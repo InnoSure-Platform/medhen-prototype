@@ -1,0 +1,21 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: jwt-auth-policy
+  namespace: default
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: medhen-api-routes
+  jwt:
+    providers:
+      - name: keycloak-jwt
+        issuer: "http://api.medhen.local/auth/realms/medhen"
+        remoteJWKS:
+          uri: "http://keycloak.default.svc.cluster.local/auth/realms/medhen/protocol/openid-connect/certs"
+        claimToHeaders:
+          - claim: preferred_username
+            header: x-medhen-username
+          - claim: sub
+            header: x-user-id

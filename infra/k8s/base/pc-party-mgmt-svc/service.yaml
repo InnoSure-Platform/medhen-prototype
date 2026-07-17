@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pc-party-mgmt-svc
+spec:
+  selector:
+    app: pc-party-mgmt-svc
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http-rest
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+      name: grpc-api

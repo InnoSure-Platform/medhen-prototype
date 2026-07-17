@@ -11,7 +11,7 @@ import (
 	"github.com/medhen/pc-party-mgmt-svc/internal/infrastructure/elasticsearch"
 	"github.com/medhen/pc-party-mgmt-svc/internal/infrastructure/fayda"
 	"github.com/medhen/pc-party-mgmt-svc/internal/infrastructure/postgres"
-	"github.com/medhen/pc-party-mgmt-svc/internal/presentation/rest"
+	"github.com/medhen/pc-party-mgmt-svc/internal/api/rest"
 )
 
 // NewTestHandler returns an http.Handler wired with all real internal components for integration testing.
@@ -25,7 +25,10 @@ func NewTestHandler(dbPool *pgxpool.Pool, esClient *es.Client) http.Handler {
 	query360 := query.NewCustomer360QueryService(dbPool)
 	
 	r := chi.NewRouter()
-	handler := rest.NewPartyHandler(registerCmd, addAddrCmd, query360)
+	updateConsentCmd := command.NewUpdateConsentHandler(uow)
+	anonymizeCmd := command.NewAnonymizePartyHandler(uow)
+
+	handler := rest.NewPartyHandler(registerCmd, addAddrCmd, updateConsentCmd, anonymizeCmd, query360)
 	handler.RegisterRoutes(r)
 	
 	return r

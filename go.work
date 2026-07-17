@@ -4,7 +4,11 @@ use (
 	./libs/pc-auth-sdk
 	./libs/pc-contracts
 	./libs/pc-idempotency-mgmt-sdk
+	./libs/pc-shared-go-svc
 	./libs/pc-telemetry-sdk
+	./services/pc-iam-svc
+	./services/pc-integration-svc
+	./services/pc-observability-svc
 	./services/pc-party-mgmt-svc
 	./services/pc-product-defn-svc
 	./tests/pc-integration-tests

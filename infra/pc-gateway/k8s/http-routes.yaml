@@ -1,0 +1,47 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: medhen-api-routes
+  namespace: default
+spec:
+  parentRefs:
+    - name: medhen-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/pc-iam-svc/
+      backendRefs:
+        - name: pc-iam-svc
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/pc-party-mgmt-svc/
+      backendRefs:
+        - name: pc-party-mgmt-svc
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/pc-product-defn-svc/
+      backendRefs:
+        - name: pc-product-defn-svc
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: medhen-auth-routes
+  namespace: default
+spec:
+  parentRefs:
+    - name: medhen-gateway
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /auth/
+      backendRefs:
+        - name: keycloak
+          port: 80

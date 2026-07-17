@@ -1,9 +1,9 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26-bookworm AS builder
 
 WORKDIR /app
 
 # Install build dependencies
-RUN apk add --no-cache make gcc musl-dev
+RUN apt-get update && apt-get install -y --no-install-recommends make gcc musl-dev
 
 # Copy the entire workspace
 COPY go.work go.work.sum ./
@@ -22,11 +22,11 @@ RUN go build -o /app/bin/pc-audit-svc ./cmd/pc-audit-svc
 RUN go build -o /app/bin/pc-integration-svc ./cmd/pc-integration-svc
 
 # --- Runtime Image ---
-FROM alpine:3.19
+FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
 
-RUN apk add --no-cache tzdata ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata ca-certificates
 
 COPY --from=builder /app/bin/ /app/bin/
 

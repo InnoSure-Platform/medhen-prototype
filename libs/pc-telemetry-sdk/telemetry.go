@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 
 	"go.opentelemetry.io/otel"
@@ -12,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Config holds the standard telemetry configuration for all InnoGuard services.
@@ -19,6 +21,26 @@ type Config struct {
 	ServiceName string
 	Version     string
 	Endpoint    string // OTLP endpoint (e.g., localhost:4317)
+}
+
+// TraceHandler is a custom slog handler that adds trace context to log records.
+type TraceHandler struct {
+	slog.Handler
+}
+
+// Handle adds trace_id and span_id to the log record if they exist in the context.
+func (h *TraceHandler) Handle(ctx context.Context, r slog.Record) error {
+	spanCtx := trace.SpanContextFromContext(ctx)
+	if spanCtx.HasTraceID() {
+		r.AddAttrs(slog.String("trace_id", spanCtx.TraceID().String()))
+		r.AddAttrs(slog.String("span_id", spanCtx.SpanID().String()))
+	}
+	return h.Handler.Handle(ctx, r)
+}
+
+// TraceLoggingMiddleware wraps an existing slog handler with the TraceHandler.
+func TraceLoggingMiddleware(next slog.Handler) slog.Handler {
+	return &TraceHandler{Handler: next}
 }
 
 // Init initializes OpenTelemetry and structured logging.
@@ -32,7 +54,7 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 
 	exporter, err := otlptracegrpc.New(ctx,
 		otlptracegrpc.WithEndpoint(endpoint),
-		otlptracegrpc.WithInsecure(), // In a real Tier-0 this might be TLS-secured depending on mesh
+		otlptracegrpc.WithInsecure(), // Consider securing this for actual prod deployments
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
@@ -57,12 +79,26 @@ func Init(ctx context.Context, cfg Config) (func(context.Context) error, error) 
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
-	// Set up structured logging (slog) with a basic handler for now
-	// Ideally we'd wrap this with otelslog to extract trace_id automatically.
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	// Set up structured logging (slog) with trace correlation
+	logger := slog.New(TraceLoggingMiddleware(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
-	}))
+	})))
 	slog.SetDefault(logger)
 
 	return tp.Shutdown, nil
+}
+
+// Middleware provides a simple HTTP middleware to extract trace contexts
+// For more robust needs, services should use go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
+func Middleware(serviceName string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+			ctx, span := otel.Tracer(serviceName).Start(ctx, r.URL.Path)
+			defer span.End()
+			
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+		})
+	}
 }

@@ -54,6 +54,22 @@ type Party struct {
 	Addresses         []Address
 	Roles             []PartyRole
 	BankAccounts      []BankAccount
+	Consents          []ConsentRecord
+}
+
+type ConsentStatus string
+
+const (
+	ConsentStatusGranted ConsentStatus = "GRANTED"
+	ConsentStatusRevoked ConsentStatus = "REVOKED"
+)
+
+type ConsentRecord struct {
+	PartyID     uuid.UUID
+	ConsentType string
+	Status      ConsentStatus
+	Version     int
+	UpdatedAt   time.Time
 }
 
 type BankAccount struct {
@@ -127,6 +143,54 @@ func (p *Party) Suspend() error {
 		return ErrPartyStatusInvalid
 	}
 	p.Status = StatusSuspended
+	p.UpdatedAt = time.Now()
+	p.Version++
+	return nil
+}
+
+func (p *Party) UpdateConsent(consentType string, status ConsentStatus) {
+	for i, c := range p.Consents {
+		if c.ConsentType == consentType {
+			if c.Status != status {
+				p.Consents[i].Status = status
+				p.Consents[i].Version++
+				p.Consents[i].UpdatedAt = time.Now()
+				
+				p.UpdatedAt = time.Now()
+				p.Version++
+			}
+			return
+		}
+	}
+
+	p.Consents = append(p.Consents, ConsentRecord{
+		PartyID:     p.ID,
+		ConsentType: consentType,
+		Status:      status,
+		Version:     1,
+		UpdatedAt:   time.Now(),
+	})
+	
+	p.UpdatedAt = time.Now()
+	p.Version++
+}
+
+func (p *Party) Anonymize() error {
+	if p.Status == StatusAnonymized || p.Status == StatusMerged {
+		return ErrPartyStatusInvalid
+	}
+
+	p.Status = StatusAnonymized
+	p.FirstName = "REDACTED"
+	p.LastName = "REDACTED"
+	p.LegalName = "REDACTED"
+	p.NationalIDNumber = "REDACTED"
+	p.TIN = "REDACTED"
+	if p.DOB != nil {
+		redactedDOB := time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
+		p.DOB = &redactedDOB
+	}
+	
 	p.UpdatedAt = time.Now()
 	p.Version++
 	return nil

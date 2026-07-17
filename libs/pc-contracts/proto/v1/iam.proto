@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package medhen.platform.iam.v1;
+
+option go_package = "github.com/medhen/pc-contracts/gen/go/iam/v1;iamv1";
+
+service PolicyEnforcementService {
+  rpc AuthorizeAction(AuthorizationRequest) returns (AuthorizationDecision);
+  rpc IntrospectToken(TokenString) returns (TokenClaims);
+}
+
+message AuthorizationRequest {
+  string jwt_token = 1;
+  string action = 2; // e.g., "approve"
+  string resource_type = 3; // e.g., "claim"
+  string resource_tenant_id = 4;
+  map<string, string> resource_attributes = 5; // e.g., {"branch_id": "B-123", "amount": "5000"}
+}
+
+message AuthorizationDecision {
+  bool is_allowed = 1;
+  string denial_reason = 2; // e.g., "INSUFFICIENT_FINANCIAL_LIMIT"
+  string policy_version = 3;
+}
+
+message TokenString {
+  string jwt_token = 1;
+}
+
+message TokenClaims {
+  string user_id = 1;
+  string tenant_id = 2;
+  repeated string roles = 3;
+  map<string, string> attributes = 4;
+}

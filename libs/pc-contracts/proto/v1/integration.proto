@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package medhen.integration.v1;
+
+option go_package = "github.com/medhen/pc-contracts/gen/go/integration/v1;integrationv1";
+
+service IntegrationService {
+  // InitiatePayment triggers a payment request to external gateways like Telebirr/CBE
+  rpc InitiatePayment(InitiatePaymentRequest) returns (InitiatePaymentResponse) {}
+
+  // VerifyIdentity checks an individual's identity against Fayda
+  rpc VerifyIdentity(VerifyIdentityRequest) returns (VerifyIdentityResponse) {}
+
+  // SendSMS sends an SMS notification via the external gateway
+  rpc SendSMS(SendSMSRequest) returns (SendSMSResponse) {}
+}
+
+message InitiatePaymentRequest {
+  string internal_reference_id = 1;
+  string provider = 2; // "TELEBIRR", "CBE", "AMOLE"
+  double amount = 3;
+  string currency = 4;
+}
+
+message InitiatePaymentResponse {
+  string redirect_url = 1;
+}
+
+message VerifyIdentityRequest {
+  string fayda_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string date_of_birth = 4; // YYYY-MM-DD
+}
+
+message VerifyIdentityResponse {
+  bool is_verified = 1;
+  string verification_reference = 2;
+  string mismatch_reason = 3; // Populated if is_verified is false
+}
+
+message SendSMSRequest {
+  string phone_number = 1;
+  string message = 2;
+  string priority = 3; // "HIGH", "NORMAL"
+}
+
+message SendSMSResponse {
+  bool success = 1;
+  string message_id = 2;
+}

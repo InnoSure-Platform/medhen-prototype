@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pc-party-mgmt-svc
+  labels:
+    app: pc-party-mgmt-svc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pc-party-mgmt-svc
+  template:
+    metadata:
+      labels:
+        app: pc-party-mgmt-svc
+    spec:
+      containers:
+        - name: party-mgmt-svc
+          image: medhen/pc-party-mgmt-svc:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http-rest
+            - containerPort: 9090
+              name: grpc-api
+          env:
+            - name: DATABASE_URL
+              value: "postgres://postgres:postgres@postgres.medhen-core.svc.cluster.local:5432/party?sslmode=disable"

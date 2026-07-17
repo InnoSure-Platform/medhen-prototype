@@ -15,6 +15,7 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	
 	partypb "github.com/medhen/pc-contracts/gen/go/party/v1"
 
@@ -25,8 +26,8 @@ import (
 	"github.com/medhen/pc-party-mgmt-svc/internal/infrastructure/fayda"
 	"github.com/medhen/pc-party-mgmt-svc/internal/infrastructure/kafka"
 	"github.com/medhen/pc-party-mgmt-svc/internal/infrastructure/postgres"
-	partygrpc "github.com/medhen/pc-party-mgmt-svc/internal/presentation/grpc"
-	"github.com/medhen/pc-party-mgmt-svc/internal/presentation/rest"
+	partygrpc "github.com/medhen/pc-party-mgmt-svc/internal/api/grpc"
+	"github.com/medhen/pc-party-mgmt-svc/internal/api/rest"
 
 	auth "github.com/medhen/pc-auth-sdk"
 	idempotency "github.com/medhen/pc-idempotency-mgmt-sdk"
@@ -57,9 +58,16 @@ func main() {
 	slog.Info("Starting pc-party-mgmt-svc")
 
 	// 2. Initialize Database & Infrastructure
-	dbPool, err := pgxpool.New(ctx, "postgres://user:pass@localhost:5432/pc_party_db")
+	poolCfg, err := pgxpool.ParseConfig("postgres://user:pass@localhost:5432/pc_party_db")
 	if err != nil {
 		slog.Error("Failed to parse database URL", "error", err)
+	}
+	poolCfg.MaxConns = 50
+	poolCfg.MinConns = 10
+	
+	dbPool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		slog.Error("Failed to connect to database", "error", err)
 	}
 	defer dbPool.Close()
 
@@ -94,6 +102,15 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+	
+	r.Get("/health/readiness", func(w http.ResponseWriter, r *http.Request) {
+		if err := dbPool.Ping(r.Context()); err != nil {
+			http.Error(w, "Database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("READY"))
+	})
 
 	// Idempotency SDK Integration
 	idempCfg := idempotency.Config{RedisURL: "redis://localhost:6379"}
@@ -107,7 +124,10 @@ func main() {
 		idempMiddleware = idempMgr.Middleware
 	}
 
-	partyHandler := rest.NewPartyHandler(registerPartyCmd, addAddrCmd, query360)
+	updateConsentCmd := command.NewUpdateConsentHandler(uow)
+	anonymizeCmd := command.NewAnonymizePartyHandler(uow)
+	
+	partyHandler := rest.NewPartyHandler(registerPartyCmd, addAddrCmd, updateConsentCmd, anonymizeCmd, query360)
 	// We map routes manually here to wrap POST requests in idempotency middleware
 	r.Route("/api/pc-party-mgmt/v1", func(r chi.Router) {
 		r.With(idempMiddleware).Post("/parties/individual", partyHandler.RegisterIndividual)
@@ -127,17 +147,26 @@ func main() {
 	kycSaga := saga.NewKYCRetrySaga(dbPool, uow, faydaClient)
 	go kycSaga.Start(ctx)
 
+	// Add TLS Certs
+	certFile := "../../certs/server.crt"
+	keyFile := "../../certs/server.key"
+
 	// 7. Start gRPC Server
 	grpcListener, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		slog.Error("Failed to listen for gRPC", "error", err)
 	} else {
-		grpcServer := googlegrpc.NewServer()
+		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+		if err != nil {
+			slog.Error("Failed to load TLS keys for gRPC", "error", err)
+			os.Exit(1)
+		}
+		grpcServer := googlegrpc.NewServer(googlegrpc.Creds(creds))
 		partyGrpcServer := partygrpc.NewPartyServer(dbPool)
 		partypb.RegisterPartyResolutionServiceServer(grpcServer, partyGrpcServer)
 
 		go func() {
-			slog.Info("gRPC server listening on :9090")
+			slog.Info("gRPC server listening on :9090 (TLS)")
 			if err := grpcServer.Serve(grpcListener); err != nil {
 				slog.Error("gRPC server failed", "error", err)
 			}
@@ -151,8 +180,8 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("HTTP server listening on :8080")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Info("HTTP server listening on :8080 (HTTPS)")
+		if err := srv.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
 			slog.Error("HTTP server failed", "error", err)
 		}
 	}()
