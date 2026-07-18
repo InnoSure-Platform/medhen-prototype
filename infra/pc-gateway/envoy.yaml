@@ -14,39 +14,57 @@ static_resources:
             virtual_hosts:
             - name: local_service
               domains: ["*"]
+              # Configure CORS
+              cors:
+                allow_origin_string_match:
+                  - safe_regex:
+                      regex: ".*"
+                allow_methods: "GET, PUT, DELETE, POST, OPTIONS, PATCH"
+                allow_headers: "keep-alive,user-agent,cache-control,content-type,content-transfer-encoding,x-accept-content-transfer-encoding,x-accept-response-streaming,x-user-agent,x-grpc-web,grpc-timeout,Authorization,Idempotency-Key,X-Tenant-ID,X-User-ID,Accept-Language"
+                max_age: "1728000"
+                expose_headers: "grpc-status,grpc-message"
               routes:
               - match: { prefix: "/auth/" }
                 route: { cluster: cluster_keycloak }
-              - match: { prefix: "/api/pc-audit-svc/" }
+              - match: { prefix: "/api/pc-audit/v1/" }
                 route: { cluster: cluster_pc-audit-svc }
-              - match: { prefix: "/api/pc-billing-svc/" }
+              - match: { prefix: "/api/pc-billing/v1/" }
                 route: { cluster: cluster_pc-billing-svc }
-              - match: { prefix: "/api/pc-claims-svc/" }
+              - match: { prefix: "/api/pc-claims/v1/" }
                 route: { cluster: cluster_pc-claims-svc }
-              - match: { prefix: "/api/pc-document-mgmt-svc/" }
+              - match: { prefix: "/api/pc-document-mgmt/v1/" }
                 route: { cluster: cluster_pc-document-mgmt-svc }
-              - match: { prefix: "/api/pc-iam-svc/" }
+              - match: { prefix: "/api/pc-iam-svc/v1/" }
                 route: { cluster: cluster_pc-iam-svc }
-              - match: { prefix: "/api/pc-integration-svc/" }
+              - match: { prefix: "/scim/v2/" }
+                route: { cluster: cluster_pc-iam-svc }
+              - match: { prefix: "/v1/webhooks/" }
                 route: { cluster: cluster_pc-integration-svc }
-              - match: { prefix: "/api/pc-notification-svc/" }
+              - match: { prefix: "/api/pc-notification/v1/" }
                 route: { cluster: cluster_pc-notification-svc }
-              - match: { prefix: "/api/pc-observability-svc/" }
+              - match: { prefix: "/api/pc-observability/v1/" }
                 route: { cluster: cluster_pc-observability-svc }
-              - match: { prefix: "/api/pc-party-mgmt-svc/" }
+              - match: { prefix: "/api/pc-party-mgmt/v1/" }
                 route: { cluster: cluster_pc-party-mgmt-svc }
-              - match: { prefix: "/api/pc-policy-svc/" }
+              - match: { prefix: "/api/pc-policy/v1/" }
                 route: { cluster: cluster_pc-policy-svc }
-              - match: { prefix: "/api/pc-product-defn-svc/" }
+              - match: { prefix: "/v1/products/" }
                 route: { cluster: cluster_pc-product-defn-svc }
-              - match: { prefix: "/api/pc-rating-calc-svc/" }
+              - match: { prefix: "/api/pc-rating-calc/v1/" }
                 route: { cluster: cluster_pc-rating-calc-svc }
-              - match: { prefix: "/api/pc-reporting-svc/" }
+              - match: { prefix: "/api/pc-reporting/v1/" }
                 route: { cluster: cluster_pc-reporting-svc }
-              - match: { prefix: "/api/pc-underwriting-svc/" }
+              - match: { prefix: "/api/pc-underwriting/v1/" }
                 route: { cluster: cluster_pc-underwriting-svc }
-              - match: { prefix: "/api/pc-workflow-svc/" }
+              - match: { prefix: "/api/pc-workflow/v1/" }
                 route: { cluster: cluster_pc-workflow-svc }
+          http_filters:
+          - name: envoy.filters.http.cors
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
   clusters:
   - name: cluster_keycloak
     connect_timeout: 2s

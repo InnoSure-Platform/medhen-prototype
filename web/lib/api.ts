@@ -1,5 +1,4 @@
 const API_BASE = process.env.NEXT_PUBLIC_MEDHEN_API ?? "http://localhost:8080";
-const API = `${API_BASE}/api/v1`;
 
 let tokenGetter: () => string | null = () => null;
 
@@ -24,7 +23,7 @@ function headers(locale: string, idem?: string): HeadersInit {
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, init);
+  const res = await fetch(`${API_BASE}${path}`, init);
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || res.statusText);
@@ -77,49 +76,49 @@ export type Audit = {
 
 export const api = {
   registerParty: (locale: string, body: object) =>
-    req<Party>("/parties", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify(body) }),
+    req<Party>("/api/pc-party-mgmt/v1/parties", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify(body) }),
   createQuote: (locale: string, body: object) =>
-    req<Quote>("/quotes", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify(body) }),
+    req<Quote>("/api/pc-policy/v1/quotes", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify(body) }),
   bindQuote: (locale: string, quoteId: string, installmentPlan: string = "100_UPFRONT") =>
-    req<BindResponse>(`/quotes/${quoteId}/bind`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ installmentPlan }) }),
+    req<BindResponse>(`/api/pc-policy/v1/policies`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ quote_id: quoteId, installmentPlan }) }),
   pay: (locale: string, invoiceId: string, phone: string) =>
-    req<PaymentResult>(`/billing/invoices/${invoiceId}/pay`, {
+    req<PaymentResult>(`/api/pc-billing/v1/invoices/${invoiceId}/pay`, {
       method: "POST",
       headers: headers(locale, crypto.randomUUID()),
       body: JSON.stringify({ channel: "telebirr", phone }),
     }),
   submitFNOL: (locale: string, body: object) =>
-    req<Claim>("/claims", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify(body) }),
+    req<Claim>("/api/pc-claims/v1/claims", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify(body) }),
   settle: (locale: string, claimId: string) =>
-    req<Claim>(`/claims/${claimId}/settle`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
-  kpis: (locale: string) => req<KPI>("/demo/kpis", { headers: headers(locale) }),
-  audit: (locale: string) => req<Audit[]>("/audit?limit=30", { headers: headers(locale) }),
-  riskSchema: (locale: string) => req<Record<string, unknown>>("/products/MOTOR-PRIVATE-COMP/risk-schema", { headers: headers(locale) }),
-  getPolicy: (locale: string, policyId: string) => req<any>(`/policies/${policyId}`, { headers: headers(locale) }),
+    req<Claim>(`/api/pc-claims/v1/claims/${claimId}/settle`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+  kpis: (locale: string) => req<KPI>("/api/pc-reporting/v1/kpis/production", { headers: headers(locale) }),
+  audit: (locale: string) => req<Audit[]>("/api/pc-audit/v1/audit?limit=30", { headers: headers(locale) }),
+  riskSchema: (locale: string) => req<Record<string, unknown>>("/v1/products/MOTOR-PRIVATE-COMP/risk-schema", { headers: headers(locale) }),
+  getPolicy: (locale: string, policyId: string) => req<any>(`/api/pc-policy/v1/policies/${policyId}`, { headers: headers(locale) }),
   endorsePolicy: (locale: string, policyId: string, risk: any) =>
-    req<any>(`/policies/${policyId}/endorse`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ risk }) }),
+    req<any>(`/api/pc-policy/v1/policies/${policyId}/endorse`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ risk }) }),
   renewPolicy: (locale: string, policyId: string) =>
-    req<any>(`/policies/${policyId}/renew`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+    req<any>(`/api/pc-policy/v1/policies/${policyId}/renew`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
   cancelPolicy: (locale: string, policyId: string) =>
-    req<void>(`/policies/${policyId}/cancel`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+    req<void>(`/api/pc-policy/v1/policies/${policyId}/cancel`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
   runEodReconciliation: (locale: string, date: string) =>
-    req<any>("/billing/eod-reconciliation", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ date }) }),
+    req<any>("/api/pc-billing/v1/eod-reconciliation", { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ date }) }),
   listReferredQuotes: (locale: string) =>
-    req<Quote[]>("/quotes?status=REFERRED", { method: "GET", headers: headers(locale, crypto.randomUUID()) }),
+    req<Quote[]>("/api/pc-policy/v1/quotes?status=REFERRED", { method: "GET", headers: headers(locale, crypto.randomUUID()) }),
   approveQuote: (locale: string, quoteId: string) =>
-    req<any>(`/quotes/${quoteId}/approve`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+    req<any>(`/api/pc-policy/v1/quotes/${quoteId}/approve`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
   declineQuote: (locale: string, quoteId: string) =>
-    req<any>(`/quotes/${quoteId}/decline`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
+    req<any>(`/api/pc-policy/v1/quotes/${quoteId}/decline`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: "{}" }),
   adjustClaimReserve: (locale: string, claimId: string, amountMinor: number) =>
-    req<any>(`/claims/${claimId}/reserve`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ amountMinor }) }),
+    req<any>(`/api/pc-claims/v1/claims/${claimId}/reserve`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ amountMinor }) }),
   recordClaimRecovery: (locale: string, claimId: string, amountMinor: number) =>
-    req<any>(`/claims/${claimId}/recovery`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ amountMinor }) }),
+    req<any>(`/api/pc-claims/v1/claims/${claimId}/recovery`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ amountMinor }) }),
   settleClaim: (locale: string, claimId: string, settlementMinor: number) =>
-    req<any>(`/claims/${claimId}/settle`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ settlementMinor }) }),
+    req<any>(`/api/pc-claims/v1/claims/${claimId}/settle`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ settlementMinor }) }),
   listClaims: (locale: string) =>
-    req<any[]>(`/claims`, { method: "GET", headers: headers(locale, crypto.randomUUID()) }),
+    req<any[]>(`/api/pc-claims/v1/claims`, { method: "GET", headers: headers(locale, crypto.randomUUID()) }),
   verifyKYC: (locale: string, partyId: string, faydaId: string) =>
-    req<any>(`/parties/${partyId}/kyc-verify`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ faydaId }) }),
+    req<any>(`/api/pc-party-mgmt/v1/parties/${partyId}/kyc-verify`, { method: "POST", headers: headers(locale, crypto.randomUUID()), body: JSON.stringify({ faydaId }) }),
   fileUrl: (path: string) => `${API_BASE}${path}`,
   saveLastPolicy: (policyId: string, policyNumber: string) => {
     if (typeof window !== "undefined") {

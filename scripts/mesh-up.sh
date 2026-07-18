@@ -50,74 +50,11 @@ start_svc() {
   echo $! > "$ROOT/logs/$name.pid"
 }
 
-# Generate Envoy configuration dynamically
-mkdir -p "$ROOT/infra/pc-gateway"
-cat <<EOF > "$ROOT/infra/pc-gateway/envoy.yaml"
-static_resources:
-  listeners:
-  - name: listener_0
-    address:
-      socket_address: { address: 0.0.0.0, port_value: 8080 }
-    filter_chains:
-    - filters:
-      - name: envoy.filters.network.http_connection_manager
-        typed_config:
-          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-          stat_prefix: ingress_http
-          route_config:
-            name: local_route
-            virtual_hosts:
-            - name: local_service
-              domains: ["*"]
-              routes:
-              - match: { prefix: "/auth/" }
-                route: { cluster: cluster_keycloak }
-EOF
-
 port=8101
 for d in "$ROOT"/services/*; do
   if [ -d "$d" ]; then
     svc=$(basename "$d")
     start_svc "$svc" ":$port"
-    
-    cat <<EOF >> "$ROOT/infra/pc-gateway/envoy.yaml"
-              - match: { prefix: "/api/$svc/" }
-                route: { cluster: cluster_$svc }
-EOF
-    port=$((port + 1))
-  fi
-done
-
-cat <<EOF >> "$ROOT/infra/pc-gateway/envoy.yaml"
-  clusters:
-  - name: cluster_keycloak
-    connect_timeout: 2s
-    type: STRICT_DNS
-    load_assignment:
-      cluster_name: cluster_keycloak
-      endpoints:
-      - lb_endpoints:
-        - endpoint:
-            address:
-              socket_address: { address: 127.0.0.1, port_value: 8081 }
-EOF
-
-port=8101
-for d in "$ROOT"/services/*; do
-  if [ -d "$d" ]; then
-    svc=$(basename "$d")
-    cat <<EOF >> "$ROOT/infra/pc-gateway/envoy.yaml"
-  - name: cluster_$svc
-    connect_timeout: 2s
-    type: STATIC
-    load_assignment:
-      cluster_name: cluster_$svc
-      endpoints:
-      - lb_endpoints:
-        - endpoint:
-            address:
-              socket_address: { address: 127.0.0.1, port_value: $port }
-EOF
     port=$((port + 1))
   fi
 done
