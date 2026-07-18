@@ -234,11 +234,22 @@ tests; no `float64` money remains (`grep` gate).
 - [x] `internal/platform/auth` — JWKS validator relocated from `pc-auth-sdk` (canonical home) +
   `RequireRole` middleware. 12 tests. Wired into `Kernel` + composition root (enabled only when
   Keycloak configured; never insecure fallback).
-- [ ] **Remaining Phase 2 (needs Postgres/Redis + testcontainers to verify):** `platform/database`
-  (pgx pool + `UnitOfWork`), `platform/outbox` (writer + correct `FOR UPDATE SKIP LOCKED`-in-tx relay,
-  C7), `platform/idempotency` (atomic SETNX/Lua, H7), `platform/telemetry` (OTel), `platform/i18n`
-  (thread-safe, M12). Deferred until a Docker/testcontainers run is available.
+- [x] `internal/platform/database` — pgx pool + **Unit-of-Work** with ambient-tx-on-context (`WithinTx`
+  / `Conn`), so repos + outbox share one commit. Integration-tested (commit persists, rollback discards).
+- [x] `internal/platform/outbox` — `Write` (same tx as aggregate) + **correct relay**: claims rows with
+  `FOR UPDATE SKIP LOCKED` *inside* the tx that marks them processed, holding locks until commit (**C7
+  fixed**). Regression test: 4 concurrent workers drain 200 msgs with zero double-publish. Also
+  commit/rollback + idempotent-reprocess tests. (Postgres via testcontainers.)
+- [x] `internal/platform/idempotency` — atomic `SETNX` claim + TTL + cached-response replay (**H7
+  fixed**). Regression test: exactly 1 winner among 100 concurrent claimants; replay returns cached
+  body. (Redis via testcontainers.)
+- [x] `internal/platform/i18n` — RWMutex-guarded translator, am/en + fallback (**M12 fixed**). Race-tested.
+- [x] CI `test-go` now runs `go test -race ./internal/...` (unit + testcontainers integration).
+- [ ] `platform/telemetry` (OTel traces/metrics) — **moved to Phase 8** (Observability), where the full
+  OTel/Jaeger wiring lives; structured slog logging + request-id correlation already exist.
 - [ ] `float64`-money grep gate flips to blocking once the policy module migrates (C8) in Phase 3.
+
+**Phase 2 is complete** (telemetry intentionally consolidated into Phase 8).
 
 ### Phase 3 — Module-by-module migration (the bulk)
 **Goal:** move each BC into `internal/modules/<bc>`, define ports, replace network calls with in-proc.

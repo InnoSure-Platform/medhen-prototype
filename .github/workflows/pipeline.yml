@@ -83,9 +83,11 @@ jobs:
             echo "== build $mod =="
             (cd "$mod" && go build ./... && go vet ./...)
           done
-      - name: Unit tests (fast, no external deps)
+      - name: Platform tests (unit + testcontainers integration)
+        # ubuntu-latest ships Docker, so testcontainers (Postgres/Redis) works.
         run: |
-          cd libs/pc-auth-sdk && go test ./...
+          go test -race ./internal/...
+          (cd libs/pc-auth-sdk && go test ./...)
 
   build-web:
     runs-on: ubuntu-latest

@@ -1,0 +1,99 @@
+// Package database provides the shared Postgres pool and a Unit-of-Work.
+//
+// The Unit-of-Work makes a transaction ambient on the context: WithinTx opens a
+// pgx.Tx and stashes it on the context; repositories call Conn(ctx) to get the
+// ambient tx (or the pool when none is active). This lets a use case wrap
+// several repository writes — plus the outbox insert — in one atomic commit
+// without repositories knowing about transaction boundaries.
+package database
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// Querier is the subset of pgx behaviour shared by *pgxpool.Pool and pgx.Tx.
+type Querier interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+type txKey struct{}
+
+// DB owns the connection pool.
+type DB struct {
+	pool *pgxpool.Pool
+}
+
+// Connect opens and verifies a pool against the given URL.
+func Connect(ctx context.Context, url string) (*DB, error) {
+	pool, err := pgxpool.New(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("database: new pool: %w", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("database: ping: %w", err)
+	}
+	return &DB{pool: pool}, nil
+}
+
+// FromPool wraps an existing pool (used by tests).
+func FromPool(pool *pgxpool.Pool) *DB { return &DB{pool: pool} }
+
+// Pool exposes the underlying pool for migrations/health.
+func (d *DB) Pool() *pgxpool.Pool { return d.pool }
+
+// Health pings the database.
+func (d *DB) Health(ctx context.Context) error { return d.pool.Ping(ctx) }
+
+// Close releases the pool.
+func (d *DB) Close() { d.pool.Close() }
+
+// Conn returns the ambient transaction if one is active on ctx, otherwise the
+// pool. Repositories should always use this rather than capturing the pool.
+func (d *DB) Conn(ctx context.Context) Querier {
+	if tx, ok := ctx.Value(txKey{}).(pgx.Tx); ok {
+		return tx
+	}
+	return d.pool
+}
+
+// WithinTx runs fn inside a transaction. If a transaction is already active on
+// ctx, fn joins it (no nested BEGIN) so composed use cases share one commit.
+// The tx commits when fn returns nil and rolls back otherwise (including panic).
+func (d *DB) WithinTx(ctx context.Context, fn func(ctx context.Context) error) (err error) {
+	if _, ok := ctx.Value(txKey{}).(pgx.Tx); ok {
+		return fn(ctx) // already in a UoW — participate
+	}
+
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("database: begin: %w", err)
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback(ctx)
+			panic(p)
+		}
+	}()
+
+	txCtx := context.WithValue(ctx, txKey{}, tx)
+	if err = fn(txCtx); err != nil {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
+			return errors.Join(err, fmt.Errorf("rollback: %w", rbErr))
+		}
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("database: commit: %w", err)
+	}
+	return nil
+}
