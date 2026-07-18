@@ -23,6 +23,8 @@ components:
     in: internal/modules/rating/**
   module-party:
     in: internal/modules/party/**
+  module-product:
+    in: internal/modules/product/**
   # Further module components are added as bounded contexts migrate (Phase 3).
 
 deps:
@@ -38,6 +40,7 @@ deps:
       - app-kernel
       - module-rating
       - module-party
+      - module-product
   module-rating:
     mayDependOn:
       - platform
@@ -48,6 +51,11 @@ deps:
     mayDependOn:
       - platform
       - app-kernel
+  module-product:
+    mayDependOn:
+      - platform
+      - app-kernel
+      - module-rating # implements rating/ports.RateTableProvider (cross-module)
 
 # commonComponents may be depended on by anyone (the shared kernel).
 commonComponents:

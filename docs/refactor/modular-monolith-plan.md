@@ -281,10 +281,16 @@ in-proc network call to a sibling module.
   `DATABASE_URL` set, applies schemas, runs the relay (`outbox → busPublisher → eventbus`), registers a
   demo audit subscriber. 5 testcontainers integration tests (atomicity: duplicate rolls back party +
   outbox; tenant isolation) + live e2e (2 parties persisted, both outbox rows `processed=t`).
-- [ ] Old `services/pc-rating-calc-svc` + `pc-party-mgmt-svc` kept for now (mesh demo still runs them);
-  deleted at **cutover** when enough modules exist to run the demo via the monolith.
-- [ ] Remaining 11 modules: `iam`, `product`, `underwriting`, `policy`, `billing`, `claims`,
-  `document`, `notification`, `integration`, `audit`, `reporting` (dependency order).
+- [x] **product** → `internal/modules/product` — the **cross-module wiring** reference. DB-backed
+  catalog (products/coverages/factors, Amharic names, seeded Motor). Implements
+  `rating/ports.RateTableProvider` and is injected into rating at the composition root, **replacing the
+  static rate table** (consumer-defines-port / provider-implements pattern). Exposes a `Catalog` reader
+  + `GET /product/products`. 4 testcontainers tests incl. a cross-module test (rating engine + product
+  provider → correct young-driver premium) + live e2e (rating now catalog-sourced).
+- [ ] Old `services/pc-rating-calc-svc`, `pc-party-mgmt-svc`, `pc-product-defn-svc` kept until
+  **cutover** (mesh demo still runs them).
+- [ ] Remaining 10 modules: `iam`, `underwriting`, `policy`, `billing`, `claims`, `document`,
+  `notification`, `integration`, `audit`, `reporting` (dependency order).
 
 ### Phase 4 — Core flow correctness (Motor vertical, D6)
 **Goal:** one real, atomic, event-emitting end-to-end spine.
