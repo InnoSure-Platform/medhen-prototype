@@ -15,9 +15,9 @@ function headers(locale: string, idem?: string): HeadersInit {
   const tok = tokenGetter();
   if (tok) {
     h.Authorization = `Bearer ${tok}`;
-  } else {
-    h["X-User-ID"] = "demo-agent";
   }
+  // No unauthenticated fallback: requests without a token are sent without an
+  // Authorization header and rejected (401) by the API, which fails closed.
   if (idem) h["Idempotency-Key"] = idem;
   return h;
 }

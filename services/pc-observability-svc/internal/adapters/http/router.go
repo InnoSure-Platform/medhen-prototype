@@ -49,7 +49,7 @@ func (r *Router) SetupRoutes() *chi.Mux {
 	})
 
 	// Auth SDK Integration
-	authCfg := auth.JWTConfig{SecretKey: "dev-secret-key"}
+	authCfg := auth.ConfigFromEnv()
 	authMiddleware := auth.Middleware(authCfg)
 
 	// Idempotency SDK Integration

@@ -6,40 +6,111 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  GO_VERSION: '1.26'
+
 jobs:
+  # --- Security gates ------------------------------------------------------
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: gitleaks (working tree)
+        # Scans the current tree for secrets. NOTE: run in --no-git mode until
+        # scripts/scrub-secrets-history.sh has purged historical secrets; after
+        # that, drop --no-git to also scan full history.
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz \
+            | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks detect --no-git --source . --redact --verbose
+
+  vuln-scan:
+    runs-on: ubuntu-latest
+    # Report-only for now; flip to blocking in Phase 7 once findings are cleared.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: govulncheck (all modules)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          for mod in $(go list -m -f '{{.Dir}}'); do
+            echo "== govulncheck $mod =="
+            (cd "$mod" && govulncheck ./...) || true
+          done
+
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: golangci-lint (all modules)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  trivy-fs:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan (vuln, secret, misconfig)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+
+  # --- Build & test --------------------------------------------------------
   test-go:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
-    - name: Build Go Platform
-      run: cd platform && go build -v ./...
-    - name: Test Go Platform
-      run: cd platform && go test -v ./...
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Build & vet all Go modules
+        run: |
+          for mod in $(go list -m -f '{{.Dir}}'); do
+            echo "== build $mod =="
+            (cd "$mod" && go build ./... && go vet ./...)
+          done
+      - name: Unit tests (fast, no external deps)
+        run: |
+          cd libs/pc-auth-sdk && go test ./...
 
   build-web:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-    - name: Install dependencies
-      run: cd web && npm ci
-    - name: Build Next.js
-      run: cd web && npm run build
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - name: Install dependencies
+        run: cd web && npm ci
+      - name: Typecheck
+        run: cd web && npx tsc --noEmit
+      - name: Build Next.js
+        run: cd web && npm run build
+        env:
+          # CI-only placeholder secrets so the fail-closed auth config can build.
+          KEYCLOAK_SECRET: ci-placeholder
+          NEXTAUTH_SECRET: ci-placeholder
+          KEYCLOAK_ISSUER: http://localhost:8081/realms/medhen
 
   docker-build:
-    needs: [test-go, build-web]
+    needs: [secret-scan, test-go, build-web]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-    - uses: actions/checkout@v4
-    - name: Build Medhen Platform Docker image
-      run: docker build -t innosure/medhen-platform:latest .
-    - name: Push to Registry (Mock)
-      run: echo "Pushing to registry... done."
+      - uses: actions/checkout@v4
+      - name: Build Medhen Platform Docker image
+        run: docker build -t innosure/medhen-platform:latest .

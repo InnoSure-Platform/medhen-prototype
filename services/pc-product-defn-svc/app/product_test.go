@@ -3,6 +3,8 @@ package app_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,18 +14,40 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	auth "github.com/medhen/pc-auth-sdk"
 	"github.com/medhen/pc-product-defn-svc/app"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+const testIssuer = "https://test.local/realms/medhen"
+const testAudience = "pc-gateway"
+
 type TestContext struct {
 	dbPool   *pgxpool.Pool
 	handler  http.Handler
+	signKey  *rsa.PrivateKey
 	tenantID string
 	response *httptest.ResponseRecorder
+}
+
+// mintToken produces a valid RS256 access token signed with the test key.
+func (tc *TestContext) mintToken() (string, error) {
+	claims := auth.CustomClaims{
+		TenantID: tc.tenantID,
+		Roles:    []string{"product-manager"},
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    testIssuer,
+			Audience:  jwt.ClaimStrings{testAudience},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token.Header["kid"] = "test-key"
+	return token.SignedString(tc.signKey)
 }
 
 func (tc *TestContext) iAmAnAuthenticatedProductManager() error {
@@ -40,8 +64,13 @@ func (tc *TestContext) iSubmitACreateProductCommandFor(code string) error {
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 
+	tokenString, err := tc.mintToken()
+	if err != nil {
+		return fmt.Errorf("mint test token: %w", err)
+	}
+
 	req := httptest.NewRequest(http.MethodPost, "/v1/products", bytes.NewBuffer(bodyBytes))
-	req.Header.Set("Authorization", "Bearer mock-valid-token")
+	req.Header.Set("Authorization", "Bearer "+tokenString)
 	req.Header.Set("Content-Type", "application/json")
 
 	tc.response = httptest.NewRecorder()
@@ -129,12 +158,24 @@ func TestFeatures(t *testing.T) {
 		t.Fatalf("failed to execute migrations: %v", err)
 	}
 
-	// 3. Setup the Application
-	handler := app.NewTestHandler(dbPool)
+	// 3. Setup the Application with a locally generated RS256 signing key.
+	signKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate test signing key: %v", err)
+	}
+	validator, err := auth.NewValidatorWithKeyFunc(
+		auth.JWTConfig{IssuerURL: testIssuer, Audience: testAudience},
+		func(*jwt.Token) (interface{}, error) { return &signKey.PublicKey, nil },
+	)
+	if err != nil {
+		t.Fatalf("failed to build test validator: %v", err)
+	}
+	handler := app.NewTestHandler(dbPool, validator.Handler)
 
 	tc := &TestContext{
 		dbPool:  dbPool,
 		handler: handler,
+		signKey: signKey,
 	}
 
 	// 4. Run Godog Test Suite

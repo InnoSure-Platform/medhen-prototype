@@ -1,6 +1,20 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import KeycloakProvider from "next-auth/providers/keycloak";
 
+// Fail closed: these must be provided by the environment. We never fall back to
+// a hardcoded/known value — a known NEXTAUTH_SECRET would let anyone forge a
+// session (including role: "admin").
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is not set (refusing to start with an insecure fallback)`);
+  }
+  return value;
+}
+
+const KEYCLOAK_SECRET = requireEnv("KEYCLOAK_SECRET");
+const NEXTAUTH_SECRET = requireEnv("NEXTAUTH_SECRET");
+
 async function refreshAccessToken(token: any) {
   try {
     const url = `${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/token`;
@@ -10,7 +24,7 @@ async function refreshAccessToken(token: any) {
       method: "POST",
       body: new URLSearchParams({
         client_id: process.env.KEYCLOAK_CLIENT || "pc-web",
-        client_secret: process.env.KEYCLOAK_SECRET || "",
+        client_secret: KEYCLOAK_SECRET,
         grant_type: "refresh_token",
         refresh_token: token.refreshToken,
       }),
@@ -41,7 +55,7 @@ const authOptions: NextAuthOptions = {
   providers: [
     KeycloakProvider({
       clientId: process.env.KEYCLOAK_CLIENT || "pc-web",
-      clientSecret: process.env.KEYCLOAK_SECRET || "",
+      clientSecret: KEYCLOAK_SECRET,
       issuer: process.env.KEYCLOAK_ISSUER,
       profile(profile) {
         return {
@@ -96,7 +110,7 @@ const authOptions: NextAuthOptions = {
     },
   },
   session: { strategy: "jwt" },
-  secret: process.env.NEXTAUTH_SECRET || "supersecret123",
+  secret: NEXTAUTH_SECRET,
   pages: {
     signIn: "/login",
   },

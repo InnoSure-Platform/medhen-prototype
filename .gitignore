@@ -9,3 +9,9 @@ data/docs/
 dist/
 coverage/
 logs/*.pid
+
+# Local TLS material — generate with scripts/gen-dev-certs.sh, never commit.
+certs/
+*.pem
+*.key
+*.crt

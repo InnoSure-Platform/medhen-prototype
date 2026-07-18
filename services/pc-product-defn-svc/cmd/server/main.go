@@ -128,7 +128,7 @@ func main() {
 
 	// Auth Middleware
 	// In Tier-0, this secret comes from Vault or we fetch JWKS dynamically from Keycloak.
-	authCfg := auth.JWTConfig{SecretKey: "dev-secret-key"}
+	authCfg := auth.ConfigFromEnv()
 	r.Use(auth.Middleware(authCfg))
 
 	// Idempotency SDK Integration

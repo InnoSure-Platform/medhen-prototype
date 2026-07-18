@@ -95,7 +95,7 @@ func main() {
 	r.Use(chimiddleware.Timeout(5 * time.Second))
 
 	// Auth SDK Integration
-	authCfg := auth.JWTConfig{SecretKey: "dev-secret-key"}
+	authCfg := auth.ConfigFromEnv()
 	r.Use(auth.Middleware(authCfg))
 
 	r.Get("/health/liveness", func(w http.ResponseWriter, r *http.Request) {

@@ -121,7 +121,7 @@ func main() {
 	r.Use(chimiddleware.Timeout(10 * time.Second))
 
 	// Auth Middleware
-	authCfg := auth.JWTConfig{SecretKey: "dev-secret-key"}
+	authCfg := auth.ConfigFromEnv()
 	r.Use(auth.Middleware(authCfg))
 
 	// Idempotency Middleware
