@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package medhen.reporting.v1;
+
+option go_package = "github.com/medhen/pc-contracts/gen/go/reporting/v1;reportingpb";
+
+service ReportingQueryService {
+  // Get production KPIs for a specific tenant and LOB
+  rpc GetProductionKPIs(GetProductionKPIsRequest) returns (GetProductionKPIsResponse) {}
+}
+
+message GetProductionKPIsRequest {
+  string tenant_id = 1;
+  string lob = 2;
+}
+
+message GetProductionKPIsResponse {
+  double total_gwp = 1;
+  double total_nwp = 2;
+  int64 policy_count = 3;
+  double loss_ratio = 4;
+  double combined_ratio = 5;
+}

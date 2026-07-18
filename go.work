@@ -6,11 +6,19 @@ use (
 	./libs/pc-idempotency-mgmt-sdk
 	./libs/pc-shared-go-svc
 	./libs/pc-telemetry-sdk
+	./services/pc-audit-svc
+	./services/pc-billing-svc
+	./services/pc-claims-svc
+	./services/pc-document-mgmt-svc
 	./services/pc-iam-svc
 	./services/pc-integration-svc
+	./services/pc-notification-svc
 	./services/pc-observability-svc
 	./services/pc-party-mgmt-svc
+	./services/pc-policy-svc
 	./services/pc-product-defn-svc
 	./services/pc-rating-calc-svc
+	./services/pc-reporting-svc
+	./services/pc-underwriting-svc
 	./services/pc-workflow-svc
 )

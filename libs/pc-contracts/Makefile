@@ -13,7 +13,9 @@ generate: init
 		--go-grpc_out=gen/go \
 		proto/v1/product.proto \
 		proto/v1/party.proto \
-		proto/v1/iam.proto
+		proto/v1/iam.proto \
+		proto/v1/integration.proto \
+		proto/v1/reporting.proto
 
 clean:
 	rm -rf gen/

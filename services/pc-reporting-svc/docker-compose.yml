@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  pc-reporting-svc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8080"
+    environment:
+      - MDH_RPT_SERVICE_NAME=pc-reporting-svc
+      - MDH_RPT_CLICKHOUSE_ADDRS=clickhouse:9000
+    depends_on:
+      - clickhouse
+      - flink-jobmanager
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./infra/clickhouse/initdb.d:/docker-entrypoint-initdb.d
+
+  flink-jobmanager:
+    image: flink:1.18-java11
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        state.backend: rocksdb
+        execution.checkpointing.interval: 10000
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+
+  flink-taskmanager:
+    image: flink:1.18-java11
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        state.backend: rocksdb
+        execution.checkpointing.interval: 10000
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+
+volumes:
+  clickhouse_data:

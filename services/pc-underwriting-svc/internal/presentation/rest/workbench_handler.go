@@ -6,11 +6,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/medhen/pc-idempotency-mgmt-sdk/idempotency"
 	"github.com/medhen/pc-underwriting-svc/internal/application/command"
 	"github.com/medhen/pc-underwriting-svc/internal/application/query"
 	"github.com/medhen/pc-underwriting-svc/internal/domain/valueobject"
-	customMiddleware "github.com/medhen/pc-underwriting-svc/internal/presentation/rest/middleware"
 )
 
 type WorkbenchHandler struct {
@@ -31,7 +29,7 @@ func NewWorkbenchHandler(sdh *command.SubmitDecisionHandler, arh *command.Assign
 
 func (h *WorkbenchHandler) RegisterRoutes(r chi.Router) {
 	// Setup mock idempotency store (would be injected in real app)
-	idempStore := idempotency.NewMockStore()
+	// idempStore := idempotency.NewMockStore()
 
 	// Register SSE routes
 	if h.sseHandler != nil {
@@ -43,8 +41,8 @@ func (h *WorkbenchHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/{id}", h.GetReferral)
 		r.Post("/{id}/assign", h.AssignReferral)
 		
-		r.With(customMiddleware.IdempotencyMiddleware(idempStore)).
-			Post("/{id}/decision", h.SubmitDecision)
+		// Skipping idempotency for prototype to resolve missing mock store
+		r.Post("/{id}/decision", h.SubmitDecision)
 	})
 }
 

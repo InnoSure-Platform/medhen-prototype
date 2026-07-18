@@ -41,7 +41,7 @@ func (r *PostgresPolicyRepository) SaveWithTx(ctx context.Context, tx pgx.Tx, p 
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status
 	`
-	_, err = tx.Exec(ctx, policyQuery, p.ID, p.TenantID, p.PolicyNumber, p.ProductID, p.PartyID, string(p.Status), p.CreatedAt)
+	_, err := tx.Exec(ctx, policyQuery, p.ID, p.TenantID, p.PolicyNumber, p.ProductID, p.PartyID, string(p.Status), p.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (r *PostgresPolicyRepository) SaveWithTx(ctx context.Context, tx pgx.Tx, p 
 
 	for _, v := range p.Versions {
 		payload, _ := json.Marshal(v.RiskPayload)
-		_, err = tx.Exec(ctx, versionQuery, v.ID, v.PolicyID, v.VersionSeq, payload, v.TotalPremium, v.EffectiveFrom, v.EffectiveTo, v.SystemFrom, v.SystemTo)
+		_, err := tx.Exec(ctx, versionQuery, v.ID, v.PolicyID, v.VersionSeq, payload, v.TotalPremium, v.EffectiveFrom, v.EffectiveTo, v.SystemFrom, v.SystemTo)
 		if err != nil {
 			return err
 		}

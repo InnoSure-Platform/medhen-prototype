@@ -12,7 +12,7 @@ import (
 	"github.com/medhen/pc-underwriting-svc/internal/application/port"
 	"github.com/medhen/pc-underwriting-svc/internal/application/query"
 	"github.com/medhen/pc-underwriting-svc/internal/application/worker"
-	"github.com/medhen/pc-telemetry-sdk/telemetry"
+	telemetry "github.com/medhen/pc-telemetry-sdk"
 	"github.com/medhen/pc-underwriting-svc/internal/infrastructure/grpcclient"
 	"github.com/medhen/pc-underwriting-svc/internal/infrastructure/postgres"
 	"github.com/medhen/pc-underwriting-svc/internal/presentation/grpc"
@@ -23,14 +23,18 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Initialize OpenTelemetry
-	shutdown, err := telemetry.InitProvider("pc-underwriting-svc", "v1.0.0", "localhost:4317")
+	shutdown, err := telemetry.Init(context.Background(), telemetry.Config{
+		ServiceName: "pc-underwriting-svc",
+		Version:     "v1.0.0",
+		Endpoint:    "localhost:4317",
+	})
 	if err == nil {
 		defer shutdown(context.Background())
 	}
 
 	// 1. Setup Infrastructure
 	// dbPool, err := pgxpool.New(context.Background(), cfg.DBURL)
-	var dbPool interface{} // Mocked for compilation
+	// var dbPool interface{} // Mocked for compilation
 
 	// Repositories
 	// These casts and nil checks are purely structural mocks to represent the DI graph.
@@ -71,7 +75,7 @@ func main() {
 	log.Printf("Starting pc-underwriting-svc gRPC on port %s", cfg.GRPCPort)
 
 	// In a real app we'd use error groups and graceful shutdown.
-	err := http.ListenAndServe(":"+cfg.RESTPort, r)
+	err = http.ListenAndServe(":"+cfg.RESTPort, r)
 	if err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}

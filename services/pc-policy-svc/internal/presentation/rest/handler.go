@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/medhen/pc-policy-svc/internal/application/command"
+	"github.com/medhen/pc-policy-svc/internal/application/query"
 )
 
 type Handler struct {

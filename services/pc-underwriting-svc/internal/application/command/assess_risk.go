@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/medhen/pc-telemetry-sdk/telemetry"
+	"go.opentelemetry.io/otel"
 	"github.com/medhen/pc-underwriting-svc/internal/application/port"
 	"github.com/medhen/pc-underwriting-svc/internal/domain/aggregate"
 	"golang.org/x/sync/errgroup"
@@ -43,7 +43,7 @@ func NewAssessRiskHandler(uow port.UnitOfWork, ar port.AssessmentRepository, rr 
 }
 
 func (h *AssessRiskHandler) Handle(ctx context.Context, cmd AssessRiskCommand) (*aggregate.UnderwritingAssessment, error) {
-	ctx, span := telemetry.Tracer().Start(ctx, "AssessRiskHandler.Handle")
+	ctx, span := otel.Tracer("pc-underwriting-svc").Start(ctx, "AssessRiskHandler.Handle")
 	defer span.End()
 
 	// 1. Scatter-Gather Enrichment
@@ -75,6 +75,8 @@ func (h *AssessRiskHandler) Handle(ctx context.Context, cmd AssessRiskCommand) (
 
 	// Mock merging enrichment data into payload
 	// cmd.RiskPayload = merge(cmd.RiskPayload, priorClaims, creditScore)
+	_ = priorClaims
+	_ = creditScore
 
 	// 2. Evaluate DMN Rules via Product Service
 	status, score, rules, err := h.productSvc.EvaluateDMNRules(ctx, cmd.ProductID, cmd.RiskPayload)

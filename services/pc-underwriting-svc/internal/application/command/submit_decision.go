@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
-	"github.com/medhen/pc-telemetry-sdk/telemetry"
+	"go.opentelemetry.io/otel"
 	"github.com/medhen/pc-underwriting-svc/internal/application/port"
 	"github.com/medhen/pc-underwriting-svc/internal/domain/valueobject"
 )
@@ -41,7 +41,7 @@ func NewSubmitDecisionHandler(uow port.UnitOfWork, rr port.ReferralRepository, a
 }
 
 func (h *SubmitDecisionHandler) Handle(ctx context.Context, cmd SubmitDecisionCommand) error {
-	ctx, span := telemetry.Tracer().Start(ctx, "SubmitDecisionHandler.Handle")
+	ctx, span := otel.Tracer("pc-underwriting-svc").Start(ctx, "SubmitDecisionHandler.Handle")
 	defer span.End()
 
 	return h.uow.Do(ctx, func(txCtx context.Context) error {

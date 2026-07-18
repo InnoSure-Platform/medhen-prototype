@@ -24,10 +24,10 @@ type JWTConfig struct {
 	SecretKey string
 }
 
-// CustomClaims represents the standard Keycloak JWT payload
 type CustomClaims struct {
-	TenantID string   `json:"tenant_id,omitempty"` // Custom claim from Keycloak mapper
-	Roles    []string `json:"roles,omitempty"`     // Realm or client roles
+	TenantID   string   `json:"tenant_id,omitempty"` // Custom claim from Keycloak mapper
+	Roles      []string `json:"roles,omitempty"`     // Realm or client roles
+	BranchCode string   `json:"branch_code,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -77,6 +77,7 @@ func Middleware(cfg JWTConfig) func(http.Handler) http.Handler {
 			if claims, ok := token.Claims.(*CustomClaims); ok {
 				ctx := context.WithValue(r.Context(), TenantIDKey, claims.TenantID)
 				ctx = context.WithValue(ctx, RolesKey, claims.Roles)
+				ctx = context.WithValue(ctx, ClaimsKey, claims)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -93,4 +94,13 @@ func GetTenantID(ctx context.Context) (string, error) {
 		return tenantID, nil
 	}
 	return "", errors.New("tenant ID not found in context (unauthenticated)")
+}
+
+const ClaimsKey contextKey = "claims"
+
+// GetClaims retrieves the full CustomClaims from context
+func GetClaims(ctx context.Context) (*CustomClaims, bool) {
+	val := ctx.Value(ClaimsKey)
+	claims, ok := val.(*CustomClaims)
+	return claims, ok
 }

@@ -2,14 +2,19 @@
 .PHONY: api mesh mesh-smoke mesh-down test e2e web infra-up infra-down build-all demo-rehearse telebirr-prove
 
 build-all:
-	cd platform && go build -o ../bin/medhen-api ./cmd/medhen-api && \
-	go build -o ../bin/pc-gateway ./cmd/pc-gateway && \
-	go build -o ../bin/pc-party-mgmt-svc ./cmd/pc-party-mgmt-svc && \
-	go build -o ../bin/pc-policy-svc ./cmd/pc-policy-svc && \
-	go build -o ../bin/pc-billing-svc ./cmd/pc-billing-svc && \
-	go build -o ../bin/pc-claims-svc ./cmd/pc-claims-svc && \
-	go build -o ../bin/pc-audit-svc ./cmd/pc-audit-svc && \
-	go build -o ../bin/pc-integration-svc ./cmd/pc-integration-svc
+	@mkdir -p bin
+	@for d in services/*; do \
+		if [ -d "$$d" ]; then \
+			svc=$$(basename "$$d"); \
+			if [ -d "$$d/cmd/server" ]; then \
+				echo "Building $$svc..."; \
+				(cd "$$d" && go build -o ../../bin/$$svc ./cmd/server); \
+			elif [ -d "$$d/cmd/api" ]; then \
+				echo "Building $$svc..."; \
+				(cd "$$d" && go build -o ../../bin/$$svc ./cmd/api); \
+			fi; \
+		fi; \
+	done
 
 api: build-all
 	MEDHEN_DOCS_DIR=./data/docs ./bin/medhen-api

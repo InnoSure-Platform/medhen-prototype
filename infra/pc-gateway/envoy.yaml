@@ -1,0 +1,210 @@
+static_resources:
+  listeners:
+  - name: listener_0
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 8080 }
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains: ["*"]
+              routes:
+              - match: { prefix: "/auth/" }
+                route: { cluster: cluster_keycloak }
+              - match: { prefix: "/api/pc-audit-svc/" }
+                route: { cluster: cluster_pc-audit-svc }
+              - match: { prefix: "/api/pc-billing-svc/" }
+                route: { cluster: cluster_pc-billing-svc }
+              - match: { prefix: "/api/pc-claims-svc/" }
+                route: { cluster: cluster_pc-claims-svc }
+              - match: { prefix: "/api/pc-document-mgmt-svc/" }
+                route: { cluster: cluster_pc-document-mgmt-svc }
+              - match: { prefix: "/api/pc-iam-svc/" }
+                route: { cluster: cluster_pc-iam-svc }
+              - match: { prefix: "/api/pc-integration-svc/" }
+                route: { cluster: cluster_pc-integration-svc }
+              - match: { prefix: "/api/pc-notification-svc/" }
+                route: { cluster: cluster_pc-notification-svc }
+              - match: { prefix: "/api/pc-observability-svc/" }
+                route: { cluster: cluster_pc-observability-svc }
+              - match: { prefix: "/api/pc-party-mgmt-svc/" }
+                route: { cluster: cluster_pc-party-mgmt-svc }
+              - match: { prefix: "/api/pc-policy-svc/" }
+                route: { cluster: cluster_pc-policy-svc }
+              - match: { prefix: "/api/pc-product-defn-svc/" }
+                route: { cluster: cluster_pc-product-defn-svc }
+              - match: { prefix: "/api/pc-rating-calc-svc/" }
+                route: { cluster: cluster_pc-rating-calc-svc }
+              - match: { prefix: "/api/pc-reporting-svc/" }
+                route: { cluster: cluster_pc-reporting-svc }
+              - match: { prefix: "/api/pc-underwriting-svc/" }
+                route: { cluster: cluster_pc-underwriting-svc }
+              - match: { prefix: "/api/pc-workflow-svc/" }
+                route: { cluster: cluster_pc-workflow-svc }
+  clusters:
+  - name: cluster_keycloak
+    connect_timeout: 2s
+    type: STRICT_DNS
+    load_assignment:
+      cluster_name: cluster_keycloak
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8081 }
+  - name: cluster_pc-audit-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-audit-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8101 }
+  - name: cluster_pc-billing-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-billing-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8102 }
+  - name: cluster_pc-claims-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-claims-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8103 }
+  - name: cluster_pc-document-mgmt-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-document-mgmt-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8104 }
+  - name: cluster_pc-iam-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-iam-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8105 }
+  - name: cluster_pc-integration-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-integration-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8106 }
+  - name: cluster_pc-notification-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-notification-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8107 }
+  - name: cluster_pc-observability-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-observability-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8108 }
+  - name: cluster_pc-party-mgmt-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-party-mgmt-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8109 }
+  - name: cluster_pc-policy-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-policy-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8110 }
+  - name: cluster_pc-product-defn-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-product-defn-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8111 }
+  - name: cluster_pc-rating-calc-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-rating-calc-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8112 }
+  - name: cluster_pc-reporting-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-reporting-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8113 }
+  - name: cluster_pc-underwriting-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-underwriting-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8114 }
+  - name: cluster_pc-workflow-svc
+    connect_timeout: 2s
+    type: STATIC
+    load_assignment:
+      cluster_name: cluster_pc-workflow-svc
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 127.0.0.1, port_value: 8115 }
