@@ -1,0 +1,41 @@
+# Architecture boundary rules for the modular monolith, enforced by go-arch-lint
+# (https://github.com/fe3dback/go-arch-lint). Run: go-arch-lint check
+#
+# Intent (see docs/refactor/modular-monolith-plan.md §3):
+#   - modules are sealed: no module imports another module's internals
+#   - the domain layer of a module depends only on the shared platform kernel
+#   - everything may depend on internal/platform/*
+#
+# As bounded contexts migrate into internal/modules/<name> (Phase 3), add a
+# component + dependency rule per module. The scaffolding below covers the
+# platform kernel and composition root that exist today.
+version: 3
+workdir: .
+
+components:
+  platform:
+    in: internal/platform/**
+  app-kernel:
+    in: internal/app
+  cmd:
+    in: cmd/**
+  # Per-module components are added during Phase 3, e.g.:
+  # module-policy:
+  #   in: internal/modules/policy/**
+
+deps:
+  platform:
+    mayDependOn:
+      - platform
+  app-kernel:
+    mayDependOn:
+      - platform
+  cmd:
+    mayDependOn:
+      - platform
+      - app-kernel
+      # + each module package as they are registered
+
+# commonComponents may be depended on by anyone (the shared kernel).
+commonComponents:
+  - platform

@@ -194,6 +194,18 @@ Steps:
 **Acceptance:** `go build ./...` produces one binary; arch-lint passes on the skeleton; a trivial
 `/healthz` served by the monolith.
 
+**Status (2026-07-18):** skeleton stood up **additively** (mesh untouched, repo stays green).
+- [x] Root module `github.com/InnoSure-Platform/medhen-prototype` (`go.mod`), added `.` to `go.work`.
+- [x] Composition root `cmd/medhen-api/main.go`: config load, structured slog, module registry init,
+  `/healthz`+`/readyz`, request-id + panic-recovery middleware, graceful shutdown. Smoke-tested (200s,
+  X-Request-Id echoed).
+- [x] Module contract + registry (`internal/app/{kernel,registry}.go`); platform basics
+  (`internal/platform/{config,httpx}`); `internal/modules/README.md`; arch-lint config
+  (`.go-arch-lint.yml`).
+- [ ] Collapsing the 20 per-service `go.mod`s + deleting `go.work` completes as the **last** module
+  migrates in Phase 3 (can't delete them while the mesh still builds — strangler). Until then the root
+  module and the mesh coexist in the workspace.
+
 ### Phase 2 — Platform / shared kernel
 **Goal:** one correct implementation of every cross-cutting concern.
 Steps:
