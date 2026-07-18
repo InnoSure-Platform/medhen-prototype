@@ -10,19 +10,27 @@ package app
 import (
 	"log/slog"
 
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/auth"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/config"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/eventbus"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/ids"
 )
 
 // Kernel holds the shared platform dependencies available to every module.
-// It grows as platform capabilities land in Phase 2 (database/UoW, event bus,
-// auth validator, outbox, idempotency, telemetry).
+// It grows as platform capabilities land in Phase 2.
 type Kernel struct {
 	Config config.Config
 	Logger *slog.Logger
 
-	// Phase 2 additions (placeholders documented for the migration):
-	//   DB      *database.Pool
-	//   Events  *eventbus.Bus
-	//   Auth    *auth.Validator
-	//   Outbox  *outbox.Writer
+	// Events is the in-process domain-event bus (outbox-backed).
+	Events *eventbus.Bus
+	// Auth validates access tokens; nil when Keycloak is not configured (dev).
+	Auth *auth.Validator
+	// Sequencer issues monotonic business numbers (e.g. policy numbers).
+	Sequencer ids.Sequencer
+
+	// Phase 2 additions still pending:
+	//   DB      *database.Pool     (pgx pool + UnitOfWork)
+	//   Outbox  *outbox.Writer     (transactional outbox)
+	//   Idem    *idempotency.Store (Valkey SETNX)
 }

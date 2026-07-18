@@ -16,8 +16,11 @@ import (
 	"time"
 
 	"github.com/InnoSure-Platform/medhen-prototype/internal/app"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/auth"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/config"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/eventbus"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/httpx"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/ids"
 )
 
 func main() {
@@ -32,7 +35,27 @@ func main() {
 func run(logger *slog.Logger) error {
 	cfg := config.Load()
 
-	kernel := &app.Kernel{Config: cfg, Logger: logger}
+	// Auth is enabled when Keycloak is configured; otherwise the process runs
+	// with only public routes (dev). It never falls back to an insecure mode.
+	var validator *auth.Validator
+	if authCfg := auth.ConfigFromEnv(); authCfg.IssuerURL != "" {
+		v, err := auth.NewValidator(authCfg)
+		if err != nil {
+			return err
+		}
+		validator = v
+		logger.Info("authentication enabled", "issuer", authCfg.IssuerURL)
+	} else {
+		logger.Warn("authentication DISABLED: set KEYCLOAK_URL and KEYCLOAK_REALM to enable")
+	}
+
+	kernel := &app.Kernel{
+		Config:    cfg,
+		Logger:    logger,
+		Events:    eventbus.New(logger),
+		Auth:      validator,
+		Sequencer: ids.NewInMemorySequencer(),
+	}
 
 	registry := composeModules()
 	if err := registry.InitAll(kernel); err != nil {

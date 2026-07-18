@@ -223,6 +223,23 @@ Steps:
 **Acceptance:** platform packages unit-tested to high coverage; money/auth/outbox have adversarial
 tests; no `float64` money remains (`grep` gate).
 
+**Status (2026-07-18):** offline-testable kernel landed (all `-race` green).
+- [x] `internal/platform/money` — single `shopspring/decimal` ETB `Amount`; internal vs currency scale;
+  banker's rounding; `SafeDiv`; largest-remainder `Allocate` (no lost cents); `TaxProfile` for VAT +
+  stamp duty (M2). 14 tests.
+- [x] `internal/platform/eventbus` — concurrency-safe in-proc pub/sub; error aggregation; per-handler
+  panic isolation. 5 tests (incl. race).
+- [x] `internal/platform/ids` — ULID (oklog/ulid) + `Sequencer` (in-mem) + `PolicyNumber`
+  `EIC/MOT/{year}/{seq}` formatter (L2). 5 tests.
+- [x] `internal/platform/auth` — JWKS validator relocated from `pc-auth-sdk` (canonical home) +
+  `RequireRole` middleware. 12 tests. Wired into `Kernel` + composition root (enabled only when
+  Keycloak configured; never insecure fallback).
+- [ ] **Remaining Phase 2 (needs Postgres/Redis + testcontainers to verify):** `platform/database`
+  (pgx pool + `UnitOfWork`), `platform/outbox` (writer + correct `FOR UPDATE SKIP LOCKED`-in-tx relay,
+  C7), `platform/idempotency` (atomic SETNX/Lua, H7), `platform/telemetry` (OTel), `platform/i18n`
+  (thread-safe, M12). Deferred until a Docker/testcontainers run is available.
+- [ ] `float64`-money grep gate flips to blocking once the policy module migrates (C8) in Phase 3.
+
 ### Phase 3 — Module-by-module migration (the bulk)
 **Goal:** move each BC into `internal/modules/<bc>`, define ports, replace network calls with in-proc.
 Order (dependency-first): `iam → party → product → rating → underwriting → policy → billing → claims →
