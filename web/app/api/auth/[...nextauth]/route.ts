@@ -69,6 +69,7 @@ const authOptions: NextAuthOptions = {
           accessToken: account.access_token,
           accessTokenExpires: Date.now() + (account.expires_in as number) * 1000,
           refreshToken: account.refresh_token,
+          idToken: account.id_token,
           role: primaryRole,
           user,
         };
@@ -80,12 +81,14 @@ const authOptions: NextAuthOptions = {
 
       const refreshedToken = await refreshAccessToken(token);
       refreshedToken.role = token.role;
+      refreshedToken.idToken = token.idToken;
       return refreshedToken;
     },
     async session({ session, token }) {
       if (token) {
         session.user = token.user as any;
         session.accessToken = token.accessToken as string;
+        session.idToken = token.idToken as string;
         session.error = token.error as string;
         session.role = token.role as string;
       }

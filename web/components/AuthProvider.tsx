@@ -60,10 +60,18 @@ function InnerProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login: async () => { await signIn("keycloak", { callbackUrl: pathname !== "/login" ? pathname : "/quote" }); },
-      logout: async () => { await signOut({ callbackUrl: "/" }); },
+      logout: async () => {
+        const idToken = (session as any)?.idToken;
+        await signOut({ redirect: false });
+        if (idToken) {
+          window.location.href = `/api/auth/federated-logout?idToken=${idToken}`;
+        } else {
+          window.location.href = "/";
+        }
+      },
       getToken: () => user?.accessToken ?? null,
     }),
-    [user, loading, pathname]
+    [user, loading, pathname, session]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
