@@ -12,6 +12,7 @@ import (
 
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/auth"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/config"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/eventbus"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/ids"
 )
@@ -29,8 +30,7 @@ type Kernel struct {
 	// Sequencer issues monotonic business numbers (e.g. policy numbers).
 	Sequencer ids.Sequencer
 
-	// Phase 2 additions still pending:
-	//   DB      *database.Pool     (pgx pool + UnitOfWork)
-	//   Outbox  *outbox.Writer     (transactional outbox)
-	//   Idem    *idempotency.Store (Valkey SETNX)
+	// DB is the shared Postgres pool + Unit-of-Work; nil when DATABASE_URL is
+	// unset (DB-backed modules are then skipped).
+	DB *database.DB
 }

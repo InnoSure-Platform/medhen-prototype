@@ -16,11 +16,21 @@ import (
 	"time"
 
 	"github.com/InnoSure-Platform/medhen-prototype/internal/app"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/party"
+	partyadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/adapters"
+	partydomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/domain"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating"
+	ratingadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/adapters"
+	ratingdomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/auth"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/config"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/eventbus"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/httpx"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/ids"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/outbox"
+	"github.com/shopspring/decimal"
 )
 
 func main() {
@@ -57,7 +67,30 @@ func run(logger *slog.Logger) error {
 		Sequencer: ids.NewInMemorySequencer(),
 	}
 
-	registry := composeModules()
+	// Database + outbox relay are enabled when DATABASE_URL is set. Stateless
+	// modules (rating) run either way.
+	relayCtx, stopRelay := context.WithCancel(context.Background())
+	defer stopRelay()
+	if cfg.DatabaseURL != "" {
+		db, err := database.Connect(relayCtx, cfg.DatabaseURL)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		if err := applySchemas(relayCtx, db); err != nil {
+			return err
+		}
+		kernel.DB = db
+
+		// Bridge the transactional outbox to the in-process event bus.
+		relay := outbox.NewRelay(db, busPublisher(kernel.Events), 100, logger)
+		go relay.Run(relayCtx, cfg.OutboxPollInterval)
+		logger.Info("database + outbox relay enabled")
+	} else {
+		logger.Warn("DATABASE_URL not set: DB-backed modules disabled")
+	}
+
+	registry := composeModules(kernel)
 	if err := registry.InitAll(kernel); err != nil {
 		return err
 	}
@@ -107,8 +140,61 @@ func run(logger *slog.Logger) error {
 //	rating := ratingmod.New(...)
 //	policy := policymod.New(rating.Calculator(), underwriting.Decider(), ...)
 //	return app.NewRegistry(iam, party, product, rating, underwriting, policy, ...)
-func composeModules() *app.Registry {
-	return app.NewRegistry()
+func composeModules(k *app.Kernel) *app.Registry {
+	// rating — stateless bounded context. Uses a static Motor rate table today;
+	// the product module supplies rates once it migrates. Its Calculator facade
+	// is what the policy module will call in-process.
+	ratingMod := rating.New(
+		ratingadapters.NewMotorRateTable(),
+		ratingdomain.TaxPolicy{
+			VATRate:   decimal.NewFromFloat(0.15), // Ethiopia standard VAT
+			StampDuty: money.FromInt(35),          // fixed stamp duty (placeholder → product config)
+		},
+	)
+
+	modules := []app.Module{ratingMod}
+
+	// party — DB-backed. Registered only when a database is available.
+	if k.DB != nil {
+		partyMod := party.New(k.DB)
+		// Demo subscriber: audit trail for party registrations (audit module
+		// will own this once migrated).
+		k.Events.Subscribe(partydomain.TopicPartyRegistered, func(_ context.Context, e eventbus.Event) error {
+			k.Logger.Info("event", "topic", e.EventName())
+			return nil
+		})
+		modules = append(modules, partyMod)
+	}
+
+	return app.NewRegistry(modules...)
+}
+
+// busPublisher adapts the outbox relay to the in-process event bus. Each outbox
+// message is delivered as a generic event keyed by its topic; subscribers decode
+// the payload. This is the same seam that would target Kafka after extraction.
+func busPublisher(bus *eventbus.Bus) outbox.Publisher {
+	return outbox.PublisherFunc(func(ctx context.Context, m outbox.Message) error {
+		return bus.Publish(ctx, relayedEvent{topic: m.Topic, payload: m.Payload})
+	})
+}
+
+type relayedEvent struct {
+	topic   string
+	payload []byte
+}
+
+func (e relayedEvent) EventName() string { return e.topic }
+func (e relayedEvent) Payload() []byte   { return e.payload }
+
+// applySchemas creates the platform + module tables. This is a stopgap until the
+// migration tool lands in Phase 5.
+func applySchemas(ctx context.Context, db *database.DB) error {
+	for _, ddl := range []string{outbox.Schema, partyadapters.Schema} {
+		if _, err := db.Pool().Exec(ctx, ddl); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {

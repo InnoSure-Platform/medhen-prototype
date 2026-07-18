@@ -1,0 +1,73 @@
+// Package rest is the driving HTTP adapter for the party module.
+package rest
+
+import (
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/app"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/auth"
+)
+
+// Handler serves party endpoints.
+type Handler struct {
+	svc    *app.Service
+	logger *slog.Logger
+}
+
+// New builds the handler.
+func New(svc *app.Service, logger *slog.Logger) *Handler {
+	return &Handler{svc: svc, logger: logger}
+}
+
+// Routes returns the module's routes (mounted under /party by the registry).
+func (h *Handler) Routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /parties", h.register)
+	mux.HandleFunc("GET /parties/{id}", h.get)
+	return mux
+}
+
+func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
+	var in app.RegisterInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if tid, err := auth.GetTenantID(r.Context()); err == nil {
+		in.TenantID = tid
+	}
+
+	id, err := h.svc.Register(r.Context(), in)
+	if err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+}
+
+func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
+	tenantID, _ := auth.GetTenantID(r.Context())
+	p, err := h.svc.Get(r.Context(), tenantID, r.PathValue("id"))
+	if errors.Is(err, app.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "party not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "lookup failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func writeError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
+}

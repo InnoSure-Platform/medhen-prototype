@@ -267,6 +267,25 @@ Per-module checklist (repeat 13×):
 **Acceptance (per module):** old `services/<svc>` deleted; arch-lint clean; module tests pass; no
 in-proc network call to a sibling module.
 
+**Status (2026-07-18):** first module migrated as the **reference implementation**.
+- [x] **rating** → `internal/modules/rating` (`domain`/`ports`/`adapters`/`rest`/`module.go`). Re-homed
+  the decimal engine onto `platform/money`; **added stamp duty (M2)** and made components sum exactly to
+  gross (**L1**); dropped the OTel/validator deps from the domain (pure). Exposes a `Calculator` port
+  (the in-proc replacement for policy's `500.00` gRPC stub). 7 unit tests + full end-to-end smoke test
+  through the monolith (`POST /rating/quote` → correct breakdown + audit trace). Registered in
+  `composeModules`; arch-lint component added.
+- [x] **party** → `internal/modules/party` — the **persistence + outbox + events** reference. Register
+  individual (Amharic name + Region→Zone→Woreda→Kebele address) persists the aggregate **and** a
+  `PartyRegistered` outbox event in **one UoW** (`database.WithinTx`); the relay bridges the outbox to
+  the event bus. Exposes a `Reader` port for policy/claims. Composition root now: connects Postgres when
+  `DATABASE_URL` set, applies schemas, runs the relay (`outbox → busPublisher → eventbus`), registers a
+  demo audit subscriber. 5 testcontainers integration tests (atomicity: duplicate rolls back party +
+  outbox; tenant isolation) + live e2e (2 parties persisted, both outbox rows `processed=t`).
+- [ ] Old `services/pc-rating-calc-svc` + `pc-party-mgmt-svc` kept for now (mesh demo still runs them);
+  deleted at **cutover** when enough modules exist to run the demo via the monolith.
+- [ ] Remaining 11 modules: `iam`, `product`, `underwriting`, `policy`, `billing`, `claims`,
+  `document`, `notification`, `integration`, `audit`, `reporting` (dependency order).
+
 ### Phase 4 — Core flow correctness (Motor vertical, D6)
 **Goal:** one real, atomic, event-emitting end-to-end spine.
 Steps:

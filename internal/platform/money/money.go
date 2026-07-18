@@ -49,6 +49,21 @@ func FromString(s string) (Amount, error) {
 // Decimal returns the underlying decimal (for gRPC/JSON boundaries).
 func (a Amount) Decimal() decimal.Decimal { return a.d }
 
+// MarshalJSON emits the currency-rounded value as a JSON number (e.g. 1234.56).
+func (a Amount) MarshalJSON() ([]byte, error) {
+	return a.d.RoundBank(CurrencyScale).MarshalJSON()
+}
+
+// UnmarshalJSON parses a JSON number/string into an Amount.
+func (a *Amount) UnmarshalJSON(data []byte) error {
+	var d decimal.Decimal
+	if err := d.UnmarshalJSON(data); err != nil {
+		return err
+	}
+	a.d = d
+	return nil
+}
+
 // Add returns a+b at internal precision.
 func (a Amount) Add(b Amount) Amount {
 	return Amount{d: a.d.Add(b.d).Round(InternalScale)}

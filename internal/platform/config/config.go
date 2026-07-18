@@ -19,6 +19,11 @@ type Config struct {
 	// ReadTimeout / WriteTimeout guard the HTTP server.
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
+	// DatabaseURL enables DB-backed modules when set (DATABASE_URL). When empty
+	// the process runs only stateless modules (e.g. rating).
+	DatabaseURL string
+	// OutboxPollInterval is how often the relay drains the outbox.
+	OutboxPollInterval time.Duration
 }
 
 // Load reads configuration from the environment.
@@ -29,6 +34,8 @@ func Load() Config {
 		ShutdownTimeout: getdur("MEDHEN_SHUTDOWN_TIMEOUT", 15*time.Second),
 		ReadTimeout:     getdur("MEDHEN_READ_TIMEOUT", 15*time.Second),
 		WriteTimeout:    getdur("MEDHEN_WRITE_TIMEOUT", 30*time.Second),
+		DatabaseURL:     os.Getenv("DATABASE_URL"),
+		OutboxPollInterval: getdur("MEDHEN_OUTBOX_POLL", time.Second),
 	}
 }
 

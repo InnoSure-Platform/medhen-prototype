@@ -19,9 +19,11 @@ components:
     in: internal/app
   cmd:
     in: cmd/**
-  # Per-module components are added during Phase 3, e.g.:
-  # module-policy:
-  #   in: internal/modules/policy/**
+  module-rating:
+    in: internal/modules/rating/**
+  module-party:
+    in: internal/modules/party/**
+  # Further module components are added as bounded contexts migrate (Phase 3).
 
 deps:
   platform:
@@ -34,7 +36,18 @@ deps:
     mayDependOn:
       - platform
       - app-kernel
-      # + each module package as they are registered
+      - module-rating
+      - module-party
+  module-rating:
+    mayDependOn:
+      - platform
+      - app-kernel
+      # NB: may depend on OTHER modules' `ports` packages only (added per pair
+      # as cross-module calls appear, e.g. policy → rating/ports).
+  module-party:
+    mayDependOn:
+      - platform
+      - app-kernel
 
 # commonComponents may be depended on by anyone (the shared kernel).
 commonComponents:
