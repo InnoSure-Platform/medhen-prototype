@@ -13,7 +13,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams?.get("next") || "/customer";
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -25,14 +25,15 @@ function LoginForm() {
 
     const res = await signIn("credentials", {
       redirect: false,
-      email,
+      username,
+      email: username, // Fallback in case route.ts expects 'email'
       password,
       portal: "customer", // Defaulting to customer for now
       callbackUrl,
     });
 
     if (res?.error) {
-      setError("Invalid email or password");
+      setError("Invalid username or password");
       setLoading(false);
     } else {
       router.push(callbackUrl);
@@ -65,14 +66,14 @@ function LoginForm() {
               )}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Email
+                  Username
                 </label>
                 <Input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
                 />
               </div>
               <div className="space-y-2">
