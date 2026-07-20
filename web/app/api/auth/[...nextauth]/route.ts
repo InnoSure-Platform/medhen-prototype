@@ -1,19 +1,16 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import KeycloakProvider from "next-auth/providers/keycloak";
 
-// Fail closed: these must be provided by the environment. We never fall back to
-// a hardcoded/known value — a known NEXTAUTH_SECRET would let anyone forge a
-// session (including role: "admin").
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} is not set (refusing to start with an insecure fallback)`);
-  }
-  return value;
-}
-
-const KEYCLOAK_SECRET = requireEnv("KEYCLOAK_SECRET");
-const NEXTAUTH_SECRET = requireEnv("NEXTAUTH_SECRET");
+// Fail closed at RUNTIME (not build time). We never fall back to a hardcoded,
+// known value: a known NEXTAUTH_SECRET would let anyone forge a session
+// (including role: "admin"). NextAuth itself refuses to run in production when
+// NEXTAUTH_SECRET is unset, and an unset KEYCLOAK_SECRET simply fails the OAuth
+// exchange — neither is a forgeable constant. These must be configured in the
+// deployment environment (see web/.env.local.example). Reading them here (rather
+// than throwing at import) keeps `next build` working when env is injected only
+// at runtime.
+const KEYCLOAK_SECRET = process.env.KEYCLOAK_SECRET ?? "";
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET;
 
 async function refreshAccessToken(token: any) {
   try {

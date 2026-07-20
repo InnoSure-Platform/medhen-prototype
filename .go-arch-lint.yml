@@ -33,6 +33,8 @@ components:
     in: internal/modules/billing/**
   module-claims:
     in: internal/modules/claims/**
+  module-audit:
+    in: internal/modules/audit/**
   # Further module components are added as bounded contexts migrate (Phase 3).
 
 deps:
@@ -53,6 +55,7 @@ deps:
       - module-policy
       - module-billing
       - module-claims
+      - module-audit
   module-rating:
     mayDependOn:
       - platform
@@ -89,6 +92,11 @@ deps:
       - platform
       - app-kernel
       - module-policy # consumes policy/ports.Reader to validate cover at FNOL
+  module-audit:
+    mayDependOn:
+      - platform
+      - app-kernel
+      # subscribes to all events via the bus (SubscribeAll); no module code deps
 
 # commonComponents may be depended on by anyone (the shared kernel).
 commonComponents:

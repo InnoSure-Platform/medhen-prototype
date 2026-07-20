@@ -54,6 +54,21 @@ func TestPublishAggregatesErrorsAndIsolatesHandlers(t *testing.T) {
 	}
 }
 
+func TestSubscribeAllReceivesEveryEvent(t *testing.T) {
+	b := New(nil)
+	var seen []string
+	b.SubscribeAll(func(_ context.Context, e Event) error {
+		seen = append(seen, e.EventName())
+		return nil
+	})
+	_ = b.Publish(context.Background(), testEvent{"policy.issued"})
+	_ = b.Publish(context.Background(), testEvent{"claims.filed"})
+
+	if len(seen) != 2 || seen[0] != "policy.issued" || seen[1] != "claims.filed" {
+		t.Fatalf("SubscribeAll saw %v, want both events", seen)
+	}
+}
+
 func TestPublishNoSubscribers(t *testing.T) {
 	if err := New(nil).Publish(context.Background(), testEvent{"none"}); err != nil {
 		t.Fatalf("publish with no subscribers should be nil, got %v", err)

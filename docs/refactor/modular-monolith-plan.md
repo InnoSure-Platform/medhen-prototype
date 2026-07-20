@@ -167,7 +167,10 @@ violations; app still runs the demo.
 **Status (2026-07-18):**
 - [x] Real RS256/JWKS auth kernel in `pc-auth-sdk`; bypasses removed; 12 unit tests; call sites updated.
 - [x] Web `X-User-ID` fallback removed; `/staff`,`/quote`,`/claim` added to `middleware.ts` with role
-  gates; `NEXTAUTH_SECRET`/`KEYCLOAK_SECRET` hardcoded fallbacks removed (fail closed via `requireEnv`).
+  gates; `NEXTAUTH_SECRET`/`KEYCLOAK_SECRET` hardcoded fallbacks removed. Fails closed at **runtime**
+  (NextAuth refuses to run in prod without `NEXTAUTH_SECRET`), NOT at import — an import-time throw broke
+  `next build` on Vercel (env injected only at runtime). Deployment env must set `NEXTAUTH_SECRET`,
+  `KEYCLOAK_SECRET`, `KEYCLOAK_ISSUER`, `NEXTAUTH_URL`.
 - [x] Gateway CORS → explicit origin (`http://localhost:3000`), dropped `X-User-ID` header; Keycloak
   `redirectUris`/`webOrigins` de-wildcarded.
 - [x] Committed `certs/server.{key,crt}` removed from tree + gitignored; `scripts/gen-dev-certs.sh`
@@ -310,12 +313,18 @@ in-proc network call to a sibling module.
   auto-settles, above it is **referred atomically** (no event, claim stays FILED). Emits
   `claims.filed`/`claims.settled` via the outbox. 4 testcontainers tests + live e2e (FNOL → over-authority
   409 → fast-track SETTLED). GPS stays float64 (not money).
-- [ ] Old `services/pc-*-svc` (rating, party, product, underwriting, policy, billing, claims) kept until
-  **cutover**.
-- [ ] Remaining 6 modules: `iam`, `document`, `notification`, `integration`, `audit`, `reporting`.
+- [x] **audit** → `internal/modules/audit` — subscribes to **all** events (new `eventbus.SubscribeAll`)
+  and records an **immutable, append-only trail** for every state change (runs inside the relay tx, so
+  the audit row commits with the event). `GET /audit/logs`. 1 eventbus test + 1 testcontainers test +
+  **capstone e2e**: the full lifecycle produced the trail `party.registered → policy.issued →
+  billing.invoice_raised → billing.payment_received → claims.filed → claims.settled`. Makes the "audit on
+  every state change" claim real.
+- [ ] Old `services/pc-*-svc` (rating, party, product, underwriting, policy, billing, claims, audit) kept
+  until **cutover**.
+- [ ] Remaining 5 modules: `iam`, `document`, `notification`, `integration`, `reporting`.
 
-**Full insurance lifecycle now runs live in the monolith:** quote → underwrite → bind → issue →
-auto-invoice → Telebirr-pay → FNOL → fast-track settle.
+**Full insurance lifecycle now runs live in the monolith, fully audited:** quote → underwrite → bind →
+issue → auto-invoice → Telebirr-pay → FNOL → fast-track settle, with every step in the immutable trail.
 
 ### Phase 4 — Core flow correctness (Motor vertical, D6)
 **Goal:** one real, atomic, event-emitting end-to-end spine.

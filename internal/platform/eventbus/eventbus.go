@@ -27,9 +27,10 @@ type Handler func(ctx context.Context, e Event) error
 
 // Bus is a concurrency-safe in-process event dispatcher.
 type Bus struct {
-	mu       sync.RWMutex
-	handlers map[string][]Handler
-	logger   *slog.Logger
+	mu          sync.RWMutex
+	handlers    map[string][]Handler
+	allHandlers []Handler
+	logger      *slog.Logger
 }
 
 // New creates an empty bus.
@@ -48,11 +49,20 @@ func (b *Bus) Subscribe(eventName string, h Handler) {
 	b.handlers[eventName] = append(b.handlers[eventName], h)
 }
 
+// SubscribeAll registers a handler invoked for every published event, regardless
+// of topic (used by the audit module to record an immutable trail).
+func (b *Bus) SubscribeAll(h Handler) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.allHandlers = append(b.allHandlers, h)
+}
+
 // Publish delivers an event synchronously to all subscribers, aggregating their
 // errors. Delivery to one handler never prevents delivery to the others.
 func (b *Bus) Publish(ctx context.Context, e Event) error {
 	b.mu.RLock()
-	handlers := b.handlers[e.EventName()]
+	handlers := append([]Handler(nil), b.handlers[e.EventName()]...)
+	handlers = append(handlers, b.allHandlers...)
 	b.mu.RUnlock()
 
 	var errs []error

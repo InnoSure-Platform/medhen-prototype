@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/InnoSure-Platform/medhen-prototype/internal/app"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/audit"
+	auditadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/audit/adapters"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/billing"
 	billingadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/billing/adapters"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims"
@@ -170,6 +172,10 @@ func composeModules(k *app.Kernel) *app.Registry {
 	modules := []app.Module{uwMod}
 
 	if k.DB != nil {
+		// audit — registered first so its SubscribeAll captures every event into
+		// the immutable trail.
+		modules = append(modules, audit.New(k.DB))
+
 		// product — DB-backed catalog; supplies rating's RateTableProvider.
 		productMod := product.New(k.DB)
 		rateProvider = productMod.RateProvider()
@@ -233,7 +239,7 @@ func (e relayedEvent) Payload() []byte   { return e.payload }
 // applySchemas creates the platform + module tables. This is a stopgap until the
 // migration tool lands in Phase 5.
 func applySchemas(ctx context.Context, db *database.DB) error {
-	for _, ddl := range []string{outbox.Schema, partyadapters.Schema, productadapters.Schema, policyadapters.Schema, billingadapters.Schema, claimsadapters.Schema} {
+	for _, ddl := range []string{outbox.Schema, auditadapters.Schema, partyadapters.Schema, productadapters.Schema, policyadapters.Schema, billingadapters.Schema, claimsadapters.Schema} {
 		if _, err := db.Pool().Exec(ctx, ddl); err != nil {
 			return err
 		}
