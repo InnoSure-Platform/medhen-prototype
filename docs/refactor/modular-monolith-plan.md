@@ -482,6 +482,27 @@ Steps:
 **Acceptance:** image builds & runs non-root; traces visible in Jaeger; K8s passes a policy scan
 (kubesec/kube-linter); README accurate.
 
+## Post-refactor follow-ups (2026-07-20)
+
+1. [x] **Web branch merged** — the API-client realignment + server-side token proxy landed in `main`
+   (`b7761c5`); stale local worktree/branch removed (remote branch left for GitHub cleanup).
+2. [x] **OpenAPI contract** — `api/openapi/medhen.v1.yaml` (OpenAPI 3.1, 20 paths) documents every module
+   endpoint + bearer security. The web already has a hand-written typed client; server codegen is optional.
+3. [~] **Runtime RLS — groundwork done, activation staged.** `database.WithTenant` + `WithinTx` now set
+   `app.current_tenant` automatically from the request tenant (writes are RLS-ready with no service
+   changes); an edge middleware binds the authenticated tenant to the DB context. **Not flipped to the
+   `medhen_app` pool yet** because the outbox relay + notification dispatcher are cross-tenant background
+   workers — full activation needs a *system/BYPASSRLS* connection for those workers plus request-scoped
+   reads wrapped in tenant-txs. Documented so it's a deliberate, tested rollout, not a flag flip.
+4. [x] **CI delivery** — `docker-build` now uses buildx `build-push-action` with **SBOM + SLSA provenance
+   attestations**, pushes to GHCR on `main`, and uploads a standalone Syft SPDX SBOM artifact.
+5. [~] **Secret hygiene.** Found + fixed **live HEAD leaks**: `scripts/set-vercel-env.sh` (hardcoded client
+   secret → now required from env) and `web/.env.production.example` (real client + NextAuth secrets →
+   placeholders). Added `.gitleaks.toml` allowlisting the review doc + scrub script. The **history scrub**
+   (`scripts/scrub-secrets-history.sh`) is verified (secrets confirmed in commits fa38961/790b0f4 +
+   4 `supersecret` commits) and ready, but **not executed** — it rewrites all history and needs
+   `git-filter-repo` + a coordinated `--force-with-lease` push + collaborator re-clone.
+
 **Status — DONE (2026-07-20):**
 - [x] **OTel tracing** (step 1): `internal/platform/telemetry` installs a global tracer provider + W3C
   propagators; OTLP/HTTP export is enabled by `OTEL_EXPORTER_OTLP_ENDPOINT` (else spans are created but

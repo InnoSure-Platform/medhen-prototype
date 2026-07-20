@@ -26,7 +26,9 @@ add_env() {
 }
 
 NEXTAUTH_SECRET_VAL=$(openssl rand -base64 32)
-KEYCLOAK_SECRET_VAL="supersecret-keycloak-client"
+# Never hardcode the client secret. Provide it via the environment when running:
+#   KEYCLOAK_SECRET=<pc-web client secret> ./scripts/set-vercel-env.sh
+KEYCLOAK_SECRET_VAL="${KEYCLOAK_SECRET:?set KEYCLOAK_SECRET (the pc-web client secret) before running}"
 KEYCLOAK_ISSUER_VAL="${KEYCLOAK_ISSUER:-http://localhost:8081/realms/medhen}"
 KEYCLOAK_CLIENT_VAL="${KEYCLOAK_CLIENT:-pc-web}"
 NEXTAUTH_URL_VAL="${NEXTAUTH_URL:-http://localhost:3000}"

@@ -25,6 +25,20 @@ type Querier interface {
 }
 
 type txKey struct{}
+type tenantKey struct{}
+
+// WithTenant binds a tenant to the context. When a transaction later begins on
+// this context (WithinTx), the tenant is applied as the app.current_tenant
+// setting so Postgres row-level-security policies scope every statement to it.
+func WithTenant(ctx context.Context, tenantID string) context.Context {
+	return context.WithValue(ctx, tenantKey{}, tenantID)
+}
+
+// TenantFromContext returns the bound tenant, or "" if none.
+func TenantFromContext(ctx context.Context) string {
+	t, _ := ctx.Value(tenantKey{}).(string)
+	return t
+}
 
 // DB owns the connection pool.
 type DB struct {
@@ -86,6 +100,18 @@ func (d *DB) WithinTx(ctx context.Context, fn func(ctx context.Context) error) (
 	}()
 
 	txCtx := context.WithValue(ctx, txKey{}, tx)
+
+	// Bind the tenant to the transaction for row-level security. set_config(...,
+	// true) scopes it to this tx. When no tenant is bound (background workers,
+	// dev), the setting is left empty — safe under the owner/system role, which
+	// bypasses RLS.
+	if tenant := TenantFromContext(ctx); tenant != "" {
+		if _, cfgErr := tx.Exec(ctx, `SELECT set_config('app.current_tenant', $1, true)`, tenant); cfgErr != nil {
+			_ = tx.Rollback(ctx)
+			return fmt.Errorf("database: set tenant: %w", cfgErr)
+		}
+	}
+
 	if err = fn(txCtx); err != nil {
 		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
 			return errors.Join(err, fmt.Errorf("rollback: %w", rbErr))
@@ -107,12 +133,6 @@ func (d *DB) WithinTenantTx(ctx context.Context, tenantID string, fn func(ctx co
 	if tenantID == "" {
 		return errors.New("database: WithinTenantTx requires a non-empty tenant")
 	}
-	return d.WithinTx(ctx, func(ctx context.Context) error {
-		// set_config(..., true) scopes the value to the current transaction.
-		if _, err := d.Conn(ctx).Exec(ctx,
-			`SELECT set_config('app.current_tenant', $1, true)`, tenantID); err != nil {
-			return fmt.Errorf("database: set tenant: %w", err)
-		}
-		return fn(ctx)
-	})
+	// WithinTx applies the bound tenant as app.current_tenant when it begins.
+	return d.WithinTx(WithTenant(ctx, tenantID), fn)
 }

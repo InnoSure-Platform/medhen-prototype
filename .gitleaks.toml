@@ -1,0 +1,12 @@
+# gitleaks configuration. Extends the default ruleset; allowlists the two files
+# that intentionally reference already-rotated secrets: the code-review record
+# (documenting the findings) and the history-scrub script (its redaction map).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documentation/remediation references to already-rotated secrets"
+paths = [
+  '''scripts/scrub-secrets-history\.sh''',
+  '''docs/reviews/.*\.md''',
+]

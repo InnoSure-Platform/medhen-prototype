@@ -1,0 +1,354 @@
+openapi: 3.1.0
+info:
+  title: Medhen Platform API
+  version: "1.0.0"
+  description: >
+    HTTP contract for the medhen-api modular monolith. Each bounded context is
+    mounted under its module prefix. Money fields are serialised as JSON numbers
+    in major units (e.g. 2680.00 ETB); `*_minor` request fields are integer minor
+    units (cents). All endpoints except /healthz, /readyz and the Telebirr webhook
+    require a Bearer token when Keycloak is configured; the tenant is taken from
+    the token (or the X-Tenant-ID header in local dev).
+servers:
+  - url: http://localhost:8080
+    description: Local dev
+security:
+  - bearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      security: []
+      tags: [platform]
+      responses:
+        "200": { $ref: "#/components/responses/Health" }
+  /readyz:
+    get:
+      summary: Readiness probe
+      security: []
+      tags: [platform]
+      responses:
+        "200": { $ref: "#/components/responses/Health" }
+
+  /party/parties:
+    post:
+      summary: Register a party (individual)
+      tags: [party]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterParty" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { id: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /party/parties/{id}:
+    get:
+      summary: Get a party
+      tags: [party]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /product/products:
+    get:
+      summary: List products
+      tags: [product]
+      responses: { "200": { description: OK } }
+  /product/products/{code}:
+    get:
+      summary: Get a product by code
+      tags: [product]
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /policy/quotes:
+    post:
+      summary: Create (price) a quote
+      tags: [policy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateQuote" }
+      responses:
+        "201":
+          description: Quote created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Quote" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /policy/quotes/{id}:
+    get:
+      summary: Get a quote
+      tags: [policy]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /policy/quotes/{id}/bind:
+    post:
+      summary: Underwrite and bind a quote into a policy
+      tags: [policy]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "201":
+          description: Policy issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Policy" }
+        "409":
+          description: Referred to underwriter, or quote not bindable
+        "422":
+          description: Declined
+  /policy/policies/{id}:
+    get:
+      summary: Get a policy
+      tags: [policy]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /billing/invoices/{id}:
+    get:
+      summary: Get an invoice
+      tags: [billing]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /billing/webhooks/telebirr:
+    post:
+      summary: Telebirr payment callback (HMAC-authenticated, not a user endpoint)
+      tags: [billing]
+      security: []
+      parameters:
+        - name: X-Telebirr-Signature
+          in: header
+          required: true
+          schema: { type: string }
+          description: Hex HMAC-SHA256 of the raw body under the shared secret.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TelebirrCallback" }
+      responses:
+        "200": { description: Applied or ignored }
+        "401": { description: Invalid signature }
+
+  /claims/claims:
+    post:
+      summary: File a first notice of loss (FNOL)
+      tags: [claims]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FNOL" }
+      responses:
+        "201": { description: Claim filed }
+        "422": { description: Policy not found or not in force }
+  /claims/claims/{id}:
+    get:
+      summary: Get a claim
+      tags: [claims]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /claims/claims/{id}/settle:
+    post:
+      summary: Fast-track settle a claim
+      tags: [claims]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { amount_minor: { type: integer, format: int64 } }
+      responses:
+        "200": { description: Settled }
+        "409": { description: Exceeds fast-track authority (referred), or already settled }
+
+  /document/documents/{id}:
+    get:
+      summary: Get a generated document (e.g. Certificate of Insurance)
+      tags: [document]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /reporting/kpis:
+    get:
+      summary: Tenant KPIs (loss/combined ratio, GWP, counts)
+      tags: [reporting]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KPIs" }
+
+  /audit/logs:
+    get:
+      summary: Query the immutable audit trail
+      tags: [audit]
+      parameters:
+        - { name: topic, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 100 } }
+      responses: { "200": { description: OK } }
+
+  /iam/users:
+    post:
+      summary: Provision an application user
+      tags: [iam]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterUser" }
+      responses:
+        "201": { description: Created }
+        "403": { description: Forbidden (admin only) }
+  /iam/users/{id}:
+    get:
+      summary: Get an application user
+      tags: [iam]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    Health:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status: { type: string, example: ok }
+              time: { type: string, format: date-time }
+    Unauthorized: { description: Missing or invalid token }
+    NotFound: { description: Not found }
+    Unprocessable: { description: Validation failed }
+  schemas:
+    Address:
+      type: object
+      required: [region, zone, woreda]
+      properties:
+        region: { type: string }
+        zone: { type: string }
+        woreda: { type: string }
+        kebele: { type: string }
+        house_number: { type: string }
+    RegisterParty:
+      type: object
+      required: [full_name, phone_e164, national_id, address]
+      properties:
+        full_name: { type: string }
+        full_name_amharic: { type: string }
+        phone_e164: { type: string, example: "+251911000000" }
+        national_id: { type: string }
+        address: { $ref: "#/components/schemas/Address" }
+    CreateQuote:
+      type: object
+      required: [party_id, product_code, coverages]
+      properties:
+        party_id: { type: string }
+        product_code: { type: string, example: MOT }
+        coverages:
+          type: array
+          items: { type: string }
+          example: [OD, TPL]
+        risk_dimensions:
+          type: object
+          additionalProperties: { type: string }
+          example: { age_band: adult }
+    Quote:
+      type: object
+      description: >
+        Note: policy/claims responses currently use the domain struct's Go field
+        names (PascalCase, e.g. "ID", "GrossPremium"). Money fields are major-unit
+        numbers.
+      properties:
+        ID: { type: string }
+        Status: { type: string, example: QUOTED }
+        NetPremium: { type: number }
+        TotalTaxes: { type: number }
+        GrossPremium: { type: number }
+    Policy:
+      type: object
+      properties:
+        ID: { type: string }
+        PolicyNumber: { type: string, example: EIC/MOT/2026/000001 }
+        Status: { type: string, example: ISSUED }
+        GrossPremium: { type: number }
+        EffectiveFrom: { type: string, format: date-time }
+        EffectiveTo: { type: string, format: date-time }
+    TelebirrCallback:
+      type: object
+      required: [invoice_id, amount_minor, status]
+      properties:
+        tenant_id: { type: string }
+        invoice_id: { type: string }
+        amount_minor: { type: integer, format: int64 }
+        reference: { type: string }
+        status: { type: string, example: SUCCESS }
+    FNOL:
+      type: object
+      required: [policy_id]
+      properties:
+        policy_id: { type: string }
+        description: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        reserve_minor: { type: integer, format: int64 }
+    KPIs:
+      type: object
+      properties:
+        premium_written_minor: { type: integer, format: int64 }
+        claims_paid_minor: { type: integer, format: int64 }
+        policy_count: { type: integer }
+        claim_count: { type: integer }
+        loss_ratio: { type: number }
+        combined_ratio: { type: number }
+    RegisterUser:
+      type: object
+      required: [subject, roles]
+      properties:
+        subject: { type: string }
+        email: { type: string }
+        full_name: { type: string }
+        roles:
+          type: array
+          items: { type: string }

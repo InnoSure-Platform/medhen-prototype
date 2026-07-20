@@ -167,10 +167,22 @@ func run(logger *slog.Logger) error {
 		// /product, /reporting, /document require only a valid token.
 	}
 
+	// After auth resolves the principal, bind the tenant to the DB context so any
+	// transaction sets app.current_tenant for row-level security.
+	tenantCtx := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if t := auth.TenantOrHeader(r); t != "" {
+				r = r.WithContext(database.WithTenant(r.Context(), t))
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	handler := httpx.Chain(mux,
 		httpx.RequestID,
 		httpx.Recover(logger),
 		auth.EdgeMiddleware(validator, public, rbac),
+		tenantCtx,
 	)
 	// otelhttp is outermost so the server span covers the whole request and W3C
 	// trace context from callers is extracted before anything else runs.
