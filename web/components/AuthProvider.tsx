@@ -1,13 +1,12 @@
 "use client";
 
-import { signIn, signOut, useSession, SessionProvider } from "next-auth/react";
+import { signIn, useSession, SessionProvider } from "next-auth/react";
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 
 import { usePathname, useRouter } from "next/navigation";
 
 type AuthUser = {
   username: string;
-  accessToken: string;
 };
 
 type AuthCtx = {
@@ -15,7 +14,6 @@ type AuthCtx = {
   loading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
-  getToken: () => string | null;
 };
 
 const Ctx = createContext<AuthCtx>({
@@ -23,7 +21,6 @@ const Ctx = createContext<AuthCtx>({
   loading: true,
   login: async () => undefined,
   logout: async () => undefined,
-  getToken: () => null,
 });
 
 export function useAuth() {
@@ -39,10 +36,11 @@ function InnerProvider({ children }: { children: ReactNode }) {
   const authRequired = process.env.NEXT_PUBLIC_AUTH_REQUIRED !== "false";
 
   const user = useMemo(() => {
-    if (!session?.accessToken) return null;
+    // The access token is no longer on the session (C5); presence of an
+    // authenticated user is signalled by session.user.
+    if (!session?.user) return null;
     return {
       username: session.user?.name || session.user?.email || "User",
-      accessToken: session.accessToken,
     };
   }, [session]);
 
@@ -61,17 +59,13 @@ function InnerProvider({ children }: { children: ReactNode }) {
       loading,
       login: async () => { await signIn("keycloak", { callbackUrl: pathname !== "/login" ? pathname : "/quote" }); },
       logout: async () => {
-        const idToken = (session as any)?.idToken;
-        await signOut({ redirect: false });
-        if (idToken) {
-          window.location.href = `/api/auth/federated-logout?idToken=${idToken}`;
-        } else {
-          window.location.href = "/";
-        }
+        // The server-side route reads the id token from the encrypted cookie,
+        // clears the session cookie, and drives the Keycloak logout. The id
+        // token is never placed in the browser or the URL (H8).
+        window.location.href = "/api/auth/federated-logout";
       },
-      getToken: () => user?.accessToken ?? null,
     }),
-    [user, loading, pathname, session]
+    [user, loading, pathname]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

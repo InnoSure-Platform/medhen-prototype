@@ -98,10 +98,11 @@ const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (token) {
         session.user = token.user as any;
-        session.accessToken = token.accessToken as string;
-        // idToken is intentionally NOT exposed to the client session: it stays in
-        // the encrypted server-side JWT and is read via getToken() only for
-        // federated logout (C5/H8).
+        // Access/id tokens are deliberately NOT copied onto the session (C5/H8):
+        // the session is serialised to the browser. Server code that needs the
+        // token reads it from the encrypted JWT cookie via getToken() instead
+        // (see app/api/medhen/[...path]/route.ts and federated-logout). Only the
+        // non-secret role/error signals are exposed to the client.
         session.error = token.error as string;
         session.role = token.role as string;
       }

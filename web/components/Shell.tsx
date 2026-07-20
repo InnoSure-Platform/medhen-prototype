@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { setTokenGetter } from "@/lib/api";
 import { type Locale, t } from "@/lib/i18n";
 
 const LocaleCtx = createContext<{ locale: Locale; setLocale: (l: Locale) => void }>({
@@ -19,12 +18,8 @@ export function useLocale() {
 export function Shell({ children }: { children: ReactNode }) {
   const [locale, setLocale] = useState<Locale>("en");
   const pathname = usePathname();
-  const { user, logout, getToken } = useAuth();
+  const { user, logout } = useAuth();
   const value = useMemo(() => ({ locale, setLocale }), [locale]);
-
-  useEffect(() => {
-    setTokenGetter(getToken);
-  }, [getToken]);
 
   return (
     <LocaleCtx.Provider value={value}>
