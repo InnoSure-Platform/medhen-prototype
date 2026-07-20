@@ -22,6 +22,13 @@ import (
 	billingadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/billing/adapters"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims"
 	claimsadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims/adapters"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/document"
+	documentadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/document/adapters"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/iam"
+	iamadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/iam/adapters"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/integration"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/notification"
+	notificationadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/notification/adapters"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/party"
 	partyadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/adapters"
 	partydomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/domain"
@@ -34,6 +41,8 @@ import (
 	ratingadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/adapters"
 	ratingdomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/domain"
 	ratingports "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/ports"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/reporting"
+	reportingadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/reporting/adapters"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/underwriting"
 	uwdomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/underwriting/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/auth"
@@ -109,6 +118,10 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
+	// Start module background loops (e.g. notification dispatcher). They stop when
+	// relayCtx is cancelled at shutdown.
+	registry.StartBackground(relayCtx, kernel)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthHandler)
 	mux.HandleFunc("GET /readyz", healthHandler)
@@ -166,10 +179,14 @@ func composeModules(k *app.Kernel) *app.Registry {
 		MaxPriorClaims: 1,
 	})
 
+	// integration — stateless outbound ACL (SMS/email/Telebirr); consumed by
+	// notification.
+	integrationMod := integration.New(k.Logger)
+
 	// rating's pricing source: the product catalog when a DB is available,
 	// otherwise a static Motor table so the stateless path still works.
 	var rateProvider ratingports.RateTableProvider = ratingadapters.NewMotorRateTable()
-	modules := []app.Module{uwMod}
+	modules := []app.Module{uwMod, integrationMod}
 
 	if k.DB != nil {
 		// audit — registered first so its SubscribeAll captures every event into
@@ -207,6 +224,19 @@ func composeModules(k *app.Kernel) *app.Registry {
 		// claims — FNOL (validates cover via policy.Reader) → fast-track settle.
 		claimsMod := claims.New(k.DB, policyMod.Reader(), money.FromInt(50000))
 		modules = append(modules, claimsMod)
+
+		// document — generates the Certificate of Insurance on policy.issued.
+		modules = append(modules, document.New(k.DB, partyMod.Reader()))
+
+		// notification — queues SMS on policy.issued/claims.settled (recipient via
+		// party.Reader) and dispatches them via integration in a background loop.
+		modules = append(modules, notification.New(k.DB, partyMod.Reader(), integrationMod.SmsSender(), k.Logger))
+
+		// reporting — projects policy.issued/claims.settled into real KPIs.
+		modules = append(modules, reporting.New(k.DB))
+
+		// iam — application user/role management (auth kernel lives in platform).
+		modules = append(modules, iam.New(k.DB))
 	}
 
 	return app.NewRegistry(modules...)
@@ -239,7 +269,7 @@ func (e relayedEvent) Payload() []byte   { return e.payload }
 // applySchemas creates the platform + module tables. This is a stopgap until the
 // migration tool lands in Phase 5.
 func applySchemas(ctx context.Context, db *database.DB) error {
-	for _, ddl := range []string{outbox.Schema, auditadapters.Schema, partyadapters.Schema, productadapters.Schema, policyadapters.Schema, billingadapters.Schema, claimsadapters.Schema} {
+	for _, ddl := range []string{outbox.Schema, auditadapters.Schema, partyadapters.Schema, productadapters.Schema, policyadapters.Schema, billingadapters.Schema, claimsadapters.Schema, documentadapters.Schema, notificationadapters.Schema, reportingadapters.Schema, iamadapters.Schema} {
 		if _, err := db.Pool().Exec(ctx, ddl); err != nil {
 			return err
 		}

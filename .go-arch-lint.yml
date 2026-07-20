@@ -35,7 +35,17 @@ components:
     in: internal/modules/claims/**
   module-audit:
     in: internal/modules/audit/**
-  # Further module components are added as bounded contexts migrate (Phase 3).
+  module-integration:
+    in: internal/modules/integration/**
+  module-notification:
+    in: internal/modules/notification/**
+  module-document:
+    in: internal/modules/document/**
+  module-reporting:
+    in: internal/modules/reporting/**
+  module-iam:
+    in: internal/modules/iam/**
+  # All 13 bounded contexts migrated (Phase 3 complete).
 
 deps:
   platform:
@@ -56,6 +66,11 @@ deps:
       - module-billing
       - module-claims
       - module-audit
+      - module-integration
+      - module-notification
+      - module-document
+      - module-reporting
+      - module-iam
   module-rating:
     mayDependOn:
       - platform
@@ -97,6 +112,30 @@ deps:
       - platform
       - app-kernel
       # subscribes to all events via the bus (SubscribeAll); no module code deps
+  module-integration:
+    mayDependOn:
+      - platform
+      - app-kernel
+  module-notification:
+    mayDependOn:
+      - platform
+      - app-kernel
+      - module-integration # consumes integration/ports.SmsSender
+      - module-party       # consumes party/ports.Reader (recipient lookup)
+  module-document:
+    mayDependOn:
+      - platform
+      - app-kernel
+      - module-party # consumes party/ports.Reader (insured name)
+  module-reporting:
+    mayDependOn:
+      - platform
+      - app-kernel
+      # projects policy.issued/claims.settled via the bus (JSON contract)
+  module-iam:
+    mayDependOn:
+      - platform
+      - app-kernel
 
 # commonComponents may be depended on by anyone (the shared kernel).
 commonComponents:

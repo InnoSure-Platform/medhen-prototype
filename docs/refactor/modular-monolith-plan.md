@@ -319,12 +319,27 @@ in-proc network call to a sibling module.
   **capstone e2e**: the full lifecycle produced the trail `party.registered → policy.issued →
   billing.invoice_raised → billing.payment_received → claims.filed → claims.settled`. Makes the "audit on
   every state change" claim real.
-- [ ] Old `services/pc-*-svc` (rating, party, product, underwriting, policy, billing, claims, audit) kept
-  until **cutover**.
-- [ ] Remaining 5 modules: `iam`, `document`, `notification`, `integration`, `reporting`.
+- [x] **integration** → `internal/modules/integration` — stateless outbound ACL; exposes `SmsSender`/
+  `EmailSender` ports (logging stubs for the prototype; real gateways drop in behind the same ports).
+- [x] **notification** → `internal/modules/notification` — subscribes to `policy.issued`/`claims.settled`,
+  resolves the recipient via `party.Reader`, queues an SMS in the relay tx, and **dispatches via a
+  background loop** (new `app.BackgroundModule` hook) through `integration.SmsSender`. 3 unit tests.
+- [x] **document** → `internal/modules/document` — subscribes to `policy.issued` and generates the
+  **Certificate of Insurance** (idempotent per policy), emitting `document.generated`. 1 testcontainers test.
+- [x] **reporting** → `internal/modules/reporting` — **CQRS projection** of `policy.issued`/`claims.settled`
+  into a KPI read model computing a **real loss/combined ratio (M3 fixed)** — no more dummy values.
+  2 testcontainers tests.
+- [x] **iam** → `internal/modules/iam` — application user/role management + a `Reader` for cross-module
+  authz (token verification stays in `platform/auth`). 2 testcontainers tests.
 
-**Full insurance lifecycle now runs live in the monolith, fully audited:** quote → underwrite → bind →
-issue → auto-invoice → Telebirr-pay → FNOL → fast-track settle, with every step in the immutable trail.
+### ✅ Phase 3 COMPLETE — all 13 bounded contexts migrated
+Boot order: `underwriting → integration → audit → product → rating → party → policy → billing → claims →
+document → notification → reporting → iam`. 20 test packages green. Full lifecycle verified live across
+every module: quote → underwrite → bind → issue → COI → invoice → Telebirr-pay → SMS → FNOL → settle →
+KPIs, with every state change in the immutable audit trail.
+
+- [ ] **Cutover** (Phase 3 tail): delete `services/pc-*-svc`, collapse per-service `go.mod`, remove
+  `go.work` — now that all contexts run in the monolith.
 
 ### Phase 4 — Core flow correctness (Motor vertical, D6)
 **Goal:** one real, atomic, event-emitting end-to-end spine.

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -18,6 +19,13 @@ type Module interface {
 	// Mount returns the module's URL prefix and HTTP handler. The prefix is
 	// trimmed before the handler sees the request.
 	Mount() (prefix string, handler http.Handler)
+}
+
+// BackgroundModule is an optional interface for modules that run a background
+// loop (e.g. an outbound dispatcher). RunBackground is started in its own
+// goroutine after boot and must return promptly when the context is cancelled.
+type BackgroundModule interface {
+	RunBackground(ctx context.Context)
 }
 
 // Registry holds the ordered set of modules composing the application.
@@ -57,6 +65,17 @@ func (r *Registry) MountAll(mux *http.ServeMux) {
 		}
 		prefix = "/" + strings.Trim(prefix, "/") + "/"
 		mux.Handle(prefix, http.StripPrefix(strings.TrimSuffix(prefix, "/"), handler))
+	}
+}
+
+// StartBackground launches the background loop of every module that implements
+// BackgroundModule. The goroutines stop when ctx is cancelled.
+func (r *Registry) StartBackground(ctx context.Context, k *Kernel) {
+	for _, m := range r.modules {
+		if bg, ok := m.(BackgroundModule); ok {
+			k.Logger.Info("module background loop started", "module", m.Name())
+			go bg.RunBackground(ctx)
+		}
 	}
 }
 

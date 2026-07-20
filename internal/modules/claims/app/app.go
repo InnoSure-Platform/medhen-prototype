@@ -80,7 +80,7 @@ func (s *Service) FileFNOL(ctx context.Context, in FNOLInput) (*domain.Claim, er
 		}
 		evt := domain.ClaimFiled{
 			ClaimID: claim.ID, TenantID: claim.TenantID, PolicyID: claim.PolicyID,
-			ReserveMinor: claim.Reserve.Minor(), OccurredAt: time.Now().UTC(),
+			PartyID: claim.PartyID, ReserveMinor: claim.Reserve.Minor(), OccurredAt: time.Now().UTC(),
 		}
 		return writeEvent(ctx, s.deps.DB, domain.TopicClaimFiled, "claim", claim.ID, evt)
 	})
@@ -107,7 +107,7 @@ func (s *Service) FastTrackSettle(ctx context.Context, tenantID, claimID string,
 		}
 		evt := domain.ClaimSettled{
 			ClaimID: claim.ID, TenantID: claim.TenantID, PolicyID: claim.PolicyID,
-			AmountMinor: amount.Minor(), OccurredAt: time.Now().UTC(),
+			PartyID: claim.PartyID, AmountMinor: amount.Minor(), OccurredAt: time.Now().UTC(),
 		}
 		return writeEvent(ctx, s.deps.DB, domain.TopicClaimSettled, "claim", claim.ID, evt)
 	})

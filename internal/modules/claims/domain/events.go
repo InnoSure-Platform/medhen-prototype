@@ -13,6 +13,7 @@ type ClaimFiled struct {
 	ClaimID      string    `json:"claim_id"`
 	TenantID     string    `json:"tenant_id"`
 	PolicyID     string    `json:"policy_id"`
+	PartyID      string    `json:"party_id"`
 	ReserveMinor int64     `json:"reserve_minor"`
 	OccurredAt   time.Time `json:"occurred_at"`
 }
@@ -25,6 +26,7 @@ type ClaimSettled struct {
 	ClaimID     string    `json:"claim_id"`
 	TenantID    string    `json:"tenant_id"`
 	PolicyID    string    `json:"policy_id"`
+	PartyID     string    `json:"party_id"`
 	AmountMinor int64     `json:"amount_minor"`
 	OccurredAt  time.Time `json:"occurred_at"`
 }
