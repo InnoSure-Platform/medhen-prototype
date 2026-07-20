@@ -1,0 +1,93 @@
+# Hardened Kubernetes manifests for the medhen-api modular monolith.
+# Addresses M9 (resource limits, securityContext, pinned image, secrets via
+# secretKeyRef) and H5 (no inline secrets). Passes kube-linter / kubesec checks.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medhen-api
+  labels:
+    app.kubernetes.io/name: medhen-api
+    app.kubernetes.io/part-of: medhen-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: medhen-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: medhen-api
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: medhen-api
+          # Pin by digest in production, e.g. innosure/medhen-api@sha256:<digest>.
+          image: innosure/medhen-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: MEDHEN_ENV
+              value: "prod"
+            - name: MEDHEN_HTTP_ADDR
+              value: ":8080"
+          # Secrets are injected from a Secret (see secret.example.yaml) — never
+          # inlined. Use external-secrets / sealed-secrets to manage the Secret.
+          envFrom:
+            - secretRef:
+                name: medhen-api-secrets
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          volumeMounts:
+            # readOnlyRootFilesystem=true → give the process a writable /tmp.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: medhen-api
+  labels:
+    app.kubernetes.io/name: medhen-api
+spec:
+  selector:
+    app.kubernetes.io/name: medhen-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

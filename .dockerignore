@@ -1,0 +1,22 @@
+# Keep the build context small and reproducible: only the Go module is needed to
+# build medhen-api. Everything below is irrelevant to the image.
+.git
+.github
+.claude
+web
+deploy
+docs
+infra
+scripts
+seeds
+tests
+bin
+logs
+data
+certs
+*.md
+.env
+.env.*
+coverage.out
+Dockerfile
+.dockerignore

@@ -1,38 +1,35 @@
-FROM golang:1.26-bookworm AS builder
+# syntax=docker/dockerfile:1
+#
+# Multi-stage build for the medhen-api modular monolith. Produces a static,
+# non-root, distroless image (fixes M1/M3: no apt/shell on the runtime image).
 
-WORKDIR /app
+# --- Build stage -----------------------------------------------------------
+FROM golang:1.26.3-bookworm AS builder
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends make gcc musl-dev
+WORKDIR /src
 
-# Copy the entire workspace
-COPY go.work go.work.sum ./
-COPY contracts/ ./contracts/
-COPY shared/ ./shared/
-COPY platform/ ./platform/
+# Cache module downloads.
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Build all binaries
-WORKDIR /app/platform
-RUN go build -o /app/bin/pc-gateway ./cmd/pc-gateway
-RUN go build -o /app/bin/pc-party-mgmt-svc ./cmd/pc-party-mgmt-svc
-RUN go build -o /app/bin/pc-policy-svc ./cmd/pc-policy-svc
-RUN go build -o /app/bin/pc-billing-svc ./cmd/pc-billing-svc
-RUN go build -o /app/bin/pc-claims-svc ./cmd/pc-claims-svc
-RUN go build -o /app/bin/pc-audit-svc ./cmd/pc-audit-svc
-RUN go build -o /app/bin/pc-integration-svc ./cmd/pc-integration-svc
+COPY . .
 
-# --- Runtime Image ---
+# Static (CGO-free — pgx is pure Go), trimmed, stripped binary.
+ARG VERSION=dev
+RUN CGO_ENABLED=0 GOOS=linux go build \
+      -trimpath \
+      -ldflags="-s -w -X main.version=${VERSION}" \
+      -o /out/medhen-api ./cmd/medhen-api
+
+# --- Runtime stage ---------------------------------------------------------
+# distroless/static:nonroot ships ca-certificates + tzdata + a nonroot user
+# (uid 65532) and has no shell or package manager. Pin by digest in production.
 FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
+COPY --from=builder /out/medhen-api /app/medhen-api
 
-RUN apt-get update && apt-get install -y --no-install-recommends tzdata ca-certificates
+USER nonroot:nonroot
+EXPOSE 8080
 
-COPY --from=builder /app/bin/ /app/bin/
-
-# Create a shell script to run the correct binary based on an env var
-RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
-    echo 'exec /app/bin/$SERVICE_NAME' >> /app/entrypoint.sh && \
-    chmod +x /app/entrypoint.sh
-
-CMD ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/medhen-api"]

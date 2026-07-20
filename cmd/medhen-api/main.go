@@ -57,7 +57,13 @@ import (
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/migrate"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/outbox"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/telemetry"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
+
+// version is overridden at build time via -ldflags "-X main.version=...".
+var version = "dev"
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -70,6 +76,19 @@ func main() {
 
 func run(logger *slog.Logger) error {
 	cfg := config.Load()
+
+	// OpenTelemetry tracing. Exports via OTLP/HTTP when OTEL_EXPORTER_OTLP_ENDPOINT
+	// is set (e.g. the collector/Jaeger in infra); otherwise spans are created but
+	// not shipped, so instrumentation is always safe.
+	otelEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	otelShutdown, err := telemetry.Setup(context.Background(), "medhen-api", version, otelEndpoint)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = otelShutdown(context.Background()) }()
+	if otelEndpoint != "" {
+		logger.Info("otel tracing enabled", "endpoint", otelEndpoint)
+	}
 
 	// Auth is enabled when Keycloak is configured; otherwise the process runs
 	// with only public routes (dev). It never falls back to an insecure mode.
@@ -153,10 +172,13 @@ func run(logger *slog.Logger) error {
 		httpx.Recover(logger),
 		auth.EdgeMiddleware(validator, public, rbac),
 	)
+	// otelhttp is outermost so the server span covers the whole request and W3C
+	// trace context from callers is extracted before anything else runs.
+	edge := otelhttp.NewHandler(handler, "medhen-api")
 
 	srv := &http.Server{
 		Addr:         cfg.HTTPAddr,
-		Handler:      handler,
+		Handler:      edge,
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
 	}
@@ -167,7 +189,7 @@ func run(logger *slog.Logger) error {
 	errCh := make(chan error, 1)
 	go func() {
 		logger.Info("medhen-api listening",
-			"addr", cfg.HTTPAddr, "env", cfg.Env, "modules", registry.Names())
+			"addr", cfg.HTTPAddr, "env", cfg.Env, "version", version, "modules", registry.Names())
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}

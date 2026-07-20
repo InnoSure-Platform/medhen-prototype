@@ -1,6 +1,0 @@
-apiVersion: v2
-name: pc-notification-svc
-description: Tier-0 Event-Driven Notification Service
-type: application
-version: 0.1.0
-appVersion: "1.0.0"

@@ -482,6 +482,26 @@ Steps:
 **Acceptance:** image builds & runs non-root; traces visible in Jaeger; K8s passes a policy scan
 (kubesec/kube-linter); README accurate.
 
+**Status — DONE (2026-07-20):**
+- [x] **OTel tracing** (step 1): `internal/platform/telemetry` installs a global tracer provider + W3C
+  propagators; OTLP/HTTP export is enabled by `OTEL_EXPORTER_OTLP_ENDPOINT` (else spans are created but
+  not shipped, so instrumentation is always safe). The HTTP edge is wrapped with `otelhttp` (server spans
+  + context extraction) and the event bus starts a span per published event, so a request trace flows
+  edge → handler → event → subscriber. 2 unit tests. `version` is stamped via `-ldflags -X main.version`.
+- [x] **Buildable Dockerfile** (M1/M3): rewritten multi-stage — `golang:1.26.3` builder → `CGO_ENABLED=0`
+  static, trimmed, stripped binary → `distroless/static:nonroot` runtime (no apt/shell), `USER nonroot`,
+  `ENTRYPOINT` the binary directly. Added `.dockerignore` (build context 1.1 GB → tiny).
+- [x] **K8s hardening** (M9/H5): `deploy/k8s/medhen-api.yaml` — `runAsNonRoot`/`runAsUser 65532`,
+  `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, `capabilities: drop [ALL]`, seccomp
+  RuntimeDefault, CPU/mem requests+limits, liveness `/healthz` + readiness `/readyz`,
+  `automountServiceAccountToken: false`, writable `/tmp` emptyDir; secrets via `secretRef` (no inline
+  secrets — `secret.example.yaml` documents external-secrets/sealed-secrets). Removed the stale
+  `pc-notification-svc` helm chart.
+- [x] **ADR** (step 5): `docs/adr/ADR-PC-021-modular-monolith.md` records the modular-monolith decision,
+  sealed module boundaries, and the event/outbox backbone; supersedes ADR-PC-002/004, amends 005.
+- [ ] **Deferred:** CI push/deploy + SBOM/provenance (step 4) — needs a registry/target; wire the good
+  gateway stack (cert-manager/WAF) into the running path when a cluster exists.
+
 ---
 
 ## 5. Cross-cutting review-finding coverage

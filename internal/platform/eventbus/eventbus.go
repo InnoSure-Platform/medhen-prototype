@@ -13,7 +13,13 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+
+	"go.opentelemetry.io/otel"
 )
+
+// tracer instruments event delivery so a publish (and each handler) appears as a
+// span, nested under the request span when published in-request.
+var tracer = otel.Tracer("medhen/eventbus")
 
 // Event is a domain event. EventName is the stable topic key used for routing.
 type Event interface {
@@ -60,6 +66,9 @@ func (b *Bus) SubscribeAll(h Handler) {
 // Publish delivers an event synchronously to all subscribers, aggregating their
 // errors. Delivery to one handler never prevents delivery to the others.
 func (b *Bus) Publish(ctx context.Context, e Event) error {
+	ctx, span := tracer.Start(ctx, "event "+e.EventName())
+	defer span.End()
+
 	b.mu.RLock()
 	handlers := append([]Handler(nil), b.handlers[e.EventName()]...)
 	handlers = append(handlers, b.allHandlers...)
