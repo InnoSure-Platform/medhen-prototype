@@ -65,8 +65,15 @@ export function t(key: keyof typeof dict, locale: Locale): string {
   return dict[key][locale];
 }
 
+// formatETB formats an amount given in minor units (santim), e.g. KPI figures.
 export function formatETB(minor: number, locale: Locale): string {
-  const v = (minor / 100).toLocaleString(locale === "am" ? "am-ET" : "en-ET", {
+  return formatBirr((minor ?? 0) / 100, locale);
+}
+
+// formatBirr formats an amount already in major units (Birr). The monolith's
+// domain money marshals as a major-unit JSON number (e.g. 2160.00).
+export function formatBirr(birr: number, locale: Locale): string {
+  const v = (birr ?? 0).toLocaleString(locale === "am" ? "am-ET" : "en-ET", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
