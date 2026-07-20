@@ -298,9 +298,17 @@ in-proc network call to a sibling module.
   rejected + atomic, sequence increments, refer path issues nothing, party-not-found) + **live e2e**:
   party → quote → bind → policy `EIC/MOT/2026/000001`, both `party.registered` and `policy.issued`
   relayed to the bus.
-- [ ] Old `services/pc-*-svc` (rating, party, product, underwriting, policy) kept until **cutover**.
-- [ ] Remaining 6 modules: `iam`, `billing`, `claims`, `document`, `notification`, `integration`,
-  `audit`, `reporting`.
+- [x] **billing** → `internal/modules/billing` — the **event-consumer** reference. Subscribes to
+  `policy.issued` on the event bus and **idempotently raises the first invoice** (unique on
+  tenant+policy, so redelivery doesn't double-bill). Applies payments atomically (invoice + payment +
+  `PaymentReceived` outbox event in one UoW), tracking OPEN/PARTIALLY_PAID/PAID. **Telebirr webhook now
+  verifies the HMAC-SHA256 signature (H6)** — arbitrary/empty signatures fail closed. 1 HMAC unit test +
+  4 testcontainers tests + **live full-chain e2e**: bind → auto-invoice → bad-sig 401 → signed webhook →
+  invoice PAID.
+- [ ] Old `services/pc-*-svc` (rating, party, product, underwriting, policy, billing) kept until
+  **cutover**.
+- [ ] Remaining 7 modules: `iam`, `claims`, `document`, `notification`, `integration`, `audit`,
+  `reporting`.
 
 ### Phase 4 — Core flow correctness (Motor vertical, D6)
 **Goal:** one real, atomic, event-emitting end-to-end spine.

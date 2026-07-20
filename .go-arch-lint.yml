@@ -29,6 +29,8 @@ components:
     in: internal/modules/underwriting/**
   module-policy:
     in: internal/modules/policy/**
+  module-billing:
+    in: internal/modules/billing/**
   # Further module components are added as bounded contexts migrate (Phase 3).
 
 deps:
@@ -47,6 +49,7 @@ deps:
       - module-product
       - module-underwriting
       - module-policy
+      - module-billing
   module-rating:
     mayDependOn:
       - platform
@@ -73,6 +76,11 @@ deps:
       - module-rating       # consumes rating/ports.Calculator
       - module-party        # consumes party/ports.Reader
       - module-underwriting # consumes underwriting/ports.Decider
+  module-billing:
+    mayDependOn:
+      - platform
+      - app-kernel
+      # consumes policy.issued via the event bus (JSON contract), not code
 
 # commonComponents may be depended on by anyone (the shared kernel).
 commonComponents:

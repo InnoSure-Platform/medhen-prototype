@@ -24,6 +24,8 @@ type Config struct {
 	DatabaseURL string
 	// OutboxPollInterval is how often the relay drains the outbox.
 	OutboxPollInterval time.Duration
+	// TelebirrWebhookSecret is the HMAC secret for verifying Telebirr callbacks.
+	TelebirrWebhookSecret string
 }
 
 // Load reads configuration from the environment.
@@ -36,6 +38,7 @@ func Load() Config {
 		WriteTimeout:    getdur("MEDHEN_WRITE_TIMEOUT", 30*time.Second),
 		DatabaseURL:     os.Getenv("DATABASE_URL"),
 		OutboxPollInterval: getdur("MEDHEN_OUTBOX_POLL", time.Second),
+		TelebirrWebhookSecret: os.Getenv("TELEBIRR_WEBHOOK_SECRET"),
 	}
 }
 
