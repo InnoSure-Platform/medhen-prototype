@@ -18,6 +18,8 @@ import (
 	"github.com/InnoSure-Platform/medhen-prototype/internal/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/billing"
 	billingadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/billing/adapters"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims"
+	claimsadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims/adapters"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/party"
 	partyadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/adapters"
 	partydomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/domain"
@@ -195,6 +197,10 @@ func composeModules(k *app.Kernel) *app.Registry {
 		// applies Telebirr payments (HMAC-verified).
 		billingMod := billing.New(k.DB, k.Config.TelebirrWebhookSecret)
 		modules = append(modules, billingMod)
+
+		// claims — FNOL (validates cover via policy.Reader) → fast-track settle.
+		claimsMod := claims.New(k.DB, policyMod.Reader(), money.FromInt(50000))
+		modules = append(modules, claimsMod)
 	}
 
 	return app.NewRegistry(modules...)
@@ -227,7 +233,7 @@ func (e relayedEvent) Payload() []byte   { return e.payload }
 // applySchemas creates the platform + module tables. This is a stopgap until the
 // migration tool lands in Phase 5.
 func applySchemas(ctx context.Context, db *database.DB) error {
-	for _, ddl := range []string{outbox.Schema, partyadapters.Schema, productadapters.Schema, policyadapters.Schema, billingadapters.Schema} {
+	for _, ddl := range []string{outbox.Schema, partyadapters.Schema, productadapters.Schema, policyadapters.Schema, billingadapters.Schema, claimsadapters.Schema} {
 		if _, err := db.Pool().Exec(ctx, ddl); err != nil {
 			return err
 		}

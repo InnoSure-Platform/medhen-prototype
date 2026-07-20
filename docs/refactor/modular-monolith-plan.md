@@ -305,10 +305,17 @@ in-proc network call to a sibling module.
   verifies the HMAC-SHA256 signature (H6)** — arbitrary/empty signatures fail closed. 1 HMAC unit test +
   4 testcontainers tests + **live full-chain e2e**: bind → auto-invoice → bad-sig 401 → signed webhook →
   invoice PAID.
-- [ ] Old `services/pc-*-svc` (rating, party, product, underwriting, policy, billing) kept until
+- [x] **claims** → `internal/modules/claims` — FNOL → reserve → fast-track settle. FNOL validates the
+  policy is `ISSUED` via `policy.Reader` (cross-module); settlement within a configurable authority limit
+  auto-settles, above it is **referred atomically** (no event, claim stays FILED). Emits
+  `claims.filed`/`claims.settled` via the outbox. 4 testcontainers tests + live e2e (FNOL → over-authority
+  409 → fast-track SETTLED). GPS stays float64 (not money).
+- [ ] Old `services/pc-*-svc` (rating, party, product, underwriting, policy, billing, claims) kept until
   **cutover**.
-- [ ] Remaining 7 modules: `iam`, `claims`, `document`, `notification`, `integration`, `audit`,
-  `reporting`.
+- [ ] Remaining 6 modules: `iam`, `document`, `notification`, `integration`, `audit`, `reporting`.
+
+**Full insurance lifecycle now runs live in the monolith:** quote → underwrite → bind → issue →
+auto-invoice → Telebirr-pay → FNOL → fast-track settle.
 
 ### Phase 4 — Core flow correctness (Motor vertical, D6)
 **Goal:** one real, atomic, event-emitting end-to-end spine.
