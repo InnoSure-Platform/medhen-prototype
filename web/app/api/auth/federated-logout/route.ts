@@ -1,17 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const idToken = url.searchParams.get("idToken");
-  
+// Federated logout. The OIDC id_token is read from the server-side NextAuth
+// session (never from the URL — H8: a token in the query string is logged,
+// cached, and leaked via Referer). If no session is present we just go home.
+export async function GET(req: NextRequest) {
   const baseUrl = new URL("/", req.url).toString();
 
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const idToken = token?.idToken as string | undefined;
   if (!idToken) {
     return NextResponse.redirect(baseUrl);
   }
 
-  // Construct Keycloak end session endpoint URL
-  const endSessionURL = `${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/logout?id_token_hint=${idToken}&post_logout_redirect_uri=${encodeURIComponent(baseUrl)}`;
-  
+  const endSessionURL =
+    `${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/logout` +
+    `?id_token_hint=${encodeURIComponent(idToken)}` +
+    `&post_logout_redirect_uri=${encodeURIComponent(baseUrl)}`;
+
   return NextResponse.redirect(endSessionURL);
 }

@@ -99,7 +99,9 @@ const authOptions: NextAuthOptions = {
       if (token) {
         session.user = token.user as any;
         session.accessToken = token.accessToken as string;
-        session.idToken = token.idToken as string;
+        // idToken is intentionally NOT exposed to the client session: it stays in
+        // the encrypted server-side JWT and is read via getToken() only for
+        // federated logout (C5/H8).
         session.error = token.error as string;
         session.role = token.role as string;
       }
