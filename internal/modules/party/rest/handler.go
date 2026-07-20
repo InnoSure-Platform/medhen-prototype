@@ -36,8 +36,8 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if tid, err := auth.GetTenantID(r.Context()); err == nil {
-		in.TenantID = tid
+	if t := auth.TenantOrHeader(r); t != "" {
+		in.TenantID = t
 	}
 
 	id, err := h.svc.Register(r.Context(), in)
@@ -49,7 +49,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := auth.GetTenantID(r.Context())
+	tenantID := auth.TenantOrHeader(r)
 	p, err := h.svc.Get(r.Context(), tenantID, r.PathValue("id"))
 	if errors.Is(err, app.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "party not found")

@@ -25,6 +25,10 @@ components:
     in: internal/modules/party/**
   module-product:
     in: internal/modules/product/**
+  module-underwriting:
+    in: internal/modules/underwriting/**
+  module-policy:
+    in: internal/modules/policy/**
   # Further module components are added as bounded contexts migrate (Phase 3).
 
 deps:
@@ -41,6 +45,8 @@ deps:
       - module-rating
       - module-party
       - module-product
+      - module-underwriting
+      - module-policy
   module-rating:
     mayDependOn:
       - platform
@@ -56,6 +62,17 @@ deps:
       - platform
       - app-kernel
       - module-rating # implements rating/ports.RateTableProvider (cross-module)
+  module-underwriting:
+    mayDependOn:
+      - platform
+      - app-kernel
+  module-policy:
+    mayDependOn:
+      - platform
+      - app-kernel
+      - module-rating       # consumes rating/ports.Calculator
+      - module-party        # consumes party/ports.Reader
+      - module-underwriting # consumes underwriting/ports.Decider
 
 # commonComponents may be depended on by anyone (the shared kernel).
 commonComponents:

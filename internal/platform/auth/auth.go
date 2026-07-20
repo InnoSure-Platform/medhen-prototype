@@ -208,6 +208,18 @@ func GetTenantID(ctx context.Context) (string, error) {
 	return "", errors.New("tenant ID not found in context (unauthenticated)")
 }
 
+// TenantOrHeader returns the authenticated tenant, falling back to the
+// X-Tenant-ID header when no authenticated principal is present. The fallback is
+// a development affordance for running without Keycloak; once auth is enforced at
+// the edge (Phase 6), the authenticated tenant is authoritative and the header is
+// ignored for authenticated requests.
+func TenantOrHeader(r *http.Request) string {
+	if tid, err := GetTenantID(r.Context()); err == nil {
+		return tid
+	}
+	return r.Header.Get("X-Tenant-ID")
+}
+
 // GetClaims retrieves the full CustomClaims from context.
 func GetClaims(ctx context.Context) (*CustomClaims, bool) {
 	claims, ok := ctx.Value(ClaimsKey).(*CustomClaims)

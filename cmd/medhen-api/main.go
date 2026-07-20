@@ -19,12 +19,17 @@ import (
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/party"
 	partyadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/adapters"
 	partydomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/domain"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/policy"
+	policyadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/policy/adapters"
+	policydomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/policy/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/product"
 	productadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/product/adapters"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating"
 	ratingadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/adapters"
 	ratingdomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/domain"
 	ratingports "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/ports"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/underwriting"
+	uwdomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/underwriting/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/auth"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/config"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
@@ -149,10 +154,16 @@ func composeModules(k *app.Kernel) *app.Registry {
 		StampDuty: money.FromInt(35),          // fixed stamp duty (placeholder → product config)
 	}
 
+	// underwriting — stateless STP decision engine.
+	uwMod := underwriting.New(uwdomain.Rules{
+		ReferAbove:     money.FromInt(100000),
+		MaxPriorClaims: 1,
+	})
+
 	// rating's pricing source: the product catalog when a DB is available,
 	// otherwise a static Motor table so the stateless path still works.
 	var rateProvider ratingports.RateTableProvider = ratingadapters.NewMotorRateTable()
-	var modules []app.Module
+	modules := []app.Module{uwMod}
 
 	if k.DB != nil {
 		// product — DB-backed catalog; supplies rating's RateTableProvider.
@@ -162,21 +173,31 @@ func composeModules(k *app.Kernel) *app.Registry {
 	}
 
 	// rating — consumes the rate provider (cross-module port when DB is present).
-	modules = append(modules, rating.New(rateProvider, taxPolicy))
+	ratingMod := rating.New(rateProvider, taxPolicy)
+	modules = append(modules, ratingMod)
 
 	if k.DB != nil {
 		// party — DB-backed, emits events via the outbox.
 		partyMod := party.New(k.DB)
-		// Demo subscriber: audit trail for party registrations (the audit module
-		// will own this once migrated).
-		k.Events.Subscribe(partydomain.TopicPartyRegistered, func(_ context.Context, e eventbus.Event) error {
-			k.Logger.Info("event", "topic", e.EventName())
-			return nil
-		})
+		// Demo subscribers: audit trail (the audit module will own these).
+		k.Events.Subscribe(partydomain.TopicPartyRegistered, logEvent(k))
+		k.Events.Subscribe(policydomain.TopicPolicyIssued, logEvent(k))
 		modules = append(modules, partyMod)
+
+		// policy — the keystone: wires rating.Calculator + party.Reader +
+		// underwriting.Decider and issues atomically via the UoW + outbox.
+		policyMod := policy.New(k.DB, ratingMod.Calculator(), partyMod.Reader(), uwMod.Decider())
+		modules = append(modules, policyMod)
 	}
 
 	return app.NewRegistry(modules...)
+}
+
+func logEvent(k *app.Kernel) eventbus.Handler {
+	return func(_ context.Context, e eventbus.Event) error {
+		k.Logger.Info("event", "topic", e.EventName())
+		return nil
+	}
 }
 
 // busPublisher adapts the outbox relay to the in-process event bus. Each outbox
@@ -199,7 +220,7 @@ func (e relayedEvent) Payload() []byte   { return e.payload }
 // applySchemas creates the platform + module tables. This is a stopgap until the
 // migration tool lands in Phase 5.
 func applySchemas(ctx context.Context, db *database.DB) error {
-	for _, ddl := range []string{outbox.Schema, partyadapters.Schema, productadapters.Schema} {
+	for _, ddl := range []string{outbox.Schema, partyadapters.Schema, productadapters.Schema, policyadapters.Schema} {
 		if _, err := db.Pool().Exec(ctx, ddl); err != nil {
 			return err
 		}

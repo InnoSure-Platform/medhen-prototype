@@ -287,10 +287,20 @@ in-proc network call to a sibling module.
   static rate table** (consumer-defines-port / provider-implements pattern). Exposes a `Catalog` reader
   + `GET /product/products`. 4 testcontainers tests incl. a cross-module test (rating engine + product
   provider → correct young-driver premium) + live e2e (rating now catalog-sourced).
-- [ ] Old `services/pc-rating-calc-svc`, `pc-party-mgmt-svc`, `pc-product-defn-svc` kept until
-  **cutover** (mesh demo still runs them).
-- [ ] Remaining 10 modules: `iam`, `underwriting`, `policy`, `billing`, `claims`, `document`,
-  `notification`, `integration`, `audit`, `reporting` (dependency order).
+- [x] **underwriting** → `internal/modules/underwriting` — stateless STP decision engine (auto-accept /
+  refer / decline by rules). Exposes a `Decider` port. 4 unit tests.
+- [x] **policy** → `internal/modules/policy` — **the keystone**. `CreateQuote` prices via the real
+  in-process `rating.Calculator` (**M5** — no more `500.00` stub) after validating the party via
+  `party.Reader`; `BindQuote` runs `underwriting.Decider` then persists the quote transition + policy +
+  `PolicyIssued` outbox event in **one UoW** (**C6** — atomic issuance). Money is `platform/money`
+  throughout (**C8** — no float). Policy number is a gap-free DB sequence `EIC/MOT/{year}/{seq}`
+  (**L2**). Exposes a `Reader` for billing/claims. 5 testcontainers vertical tests (atomic issue, rebind
+  rejected + atomic, sequence increments, refer path issues nothing, party-not-found) + **live e2e**:
+  party → quote → bind → policy `EIC/MOT/2026/000001`, both `party.registered` and `policy.issued`
+  relayed to the bus.
+- [ ] Old `services/pc-*-svc` (rating, party, product, underwriting, policy) kept until **cutover**.
+- [ ] Remaining 6 modules: `iam`, `billing`, `claims`, `document`, `notification`, `integration`,
+  `audit`, `reporting`.
 
 ### Phase 4 — Core flow correctness (Motor vertical, D6)
 **Goal:** one real, atomic, event-emitting end-to-end spine.
