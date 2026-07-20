@@ -37,10 +37,10 @@ func (r partyReader) GetParty(ctx context.Context, tenantID, id string) (partypo
 }
 
 type vertical struct {
-	db      *database.DB
-	party   *partyapp.Service
-	policy  *policyapp.Service
-	tenant  string
+	db     *database.DB
+	party  *partyapp.Service
+	policy *policyapp.Service
+	tenant string
 }
 
 func setup(t *testing.T) vertical {

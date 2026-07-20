@@ -19,17 +19,17 @@ const (
 )
 
 var (
-	ErrCodeRequired     = errors.New("product: code is required")
-	ErrNoCoverages      = errors.New("product: at least one coverage is required")
-	ErrCoverageInvalid  = errors.New("product: coverage code and name are required")
+	ErrCodeRequired    = errors.New("product: code is required")
+	ErrNoCoverages     = errors.New("product: at least one coverage is required")
+	ErrCoverageInvalid = errors.New("product: coverage code and name are required")
 )
 
 // Coverage is a purchasable cover within a product, with its base premium.
 type Coverage struct {
-	Code            string
-	Name            string
-	NameAmharic     string
-	BaseRate        money.Amount
+	Code        string
+	Name        string
+	NameAmharic string
+	BaseRate    money.Amount
 }
 
 // Factor is a rating multiplier keyed by a coverage, factor type and dimension

@@ -17,8 +17,8 @@ const (
 
 // Translator holds keyed translations per language.
 type Translator struct {
-	mu   sync.RWMutex
-	dict map[Lang]map[string]string
+	mu       sync.RWMutex
+	dict     map[Lang]map[string]string
 	fallback Lang
 }
 

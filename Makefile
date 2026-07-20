@@ -1,52 +1,37 @@
-# Medhen Makefile
-.PHONY: api mesh mesh-smoke mesh-down test e2e web infra-up infra-down build-all demo-rehearse telebirr-prove
+# Medhen Makefile — single modular-monolith module.
+.PHONY: build api test test-integration vet web infra-up infra-down certs
 
-build-all:
+# Build the monolith binary.
+build:
 	@mkdir -p bin
-	@for d in services/*; do \
-		if [ -d "$$d" ]; then \
-			svc=$$(basename "$$d"); \
-			if [ -d "$$d/cmd/server" ]; then \
-				echo "Building $$svc..."; \
-				(cd "$$d" && go build -o ../../bin/$$svc ./cmd/server); \
-			elif [ -d "$$d/cmd/api" ]; then \
-				echo "Building $$svc..."; \
-				(cd "$$d" && go build -o ../../bin/$$svc ./cmd/api); \
-			fi; \
-		fi; \
-	done
+	go build -o bin/medhen-api ./cmd/medhen-api
 
-api: build-all
+# Run the monolith. DB-backed modules activate when DATABASE_URL is set;
+# otherwise only the stateless modules run.
+api: build
 	MEDHEN_DOCS_DIR=./data/docs ./bin/medhen-api
 
-mesh: build-all
-	./scripts/mesh-up.sh
-
-mesh-smoke:
-	chmod +x scripts/*.sh
-	./scripts/mesh-smoke.sh
-
-mesh-down:
-	./scripts/mesh-down.sh
-
-demo-rehearse: mesh-smoke
-	@echo "See docs/demo/DEMO-RUNBOOK.md for facilitator script"
-
-telebirr-prove:
-	./scripts/telebirr-prove.sh
-
+# Unit tests (fast; testcontainers integration tests are skipped via -short).
 test:
-	cd shared/go && go test ./...
-	cd platform && go test ./...
+	go test -short -race ./...
 
-e2e:
-	./scripts/demo-e2e.sh
+# Full suite including testcontainers integration tests (requires Docker).
+test-integration:
+	go test -race ./...
+
+vet:
+	go vet ./...
 
 web:
 	cd web && npm run dev
 
+# Local infra backbone (Postgres, Valkey, Kafka, Keycloak) for the monolith.
 infra-up:
 	cd infra && docker compose up -d
 
 infra-down:
 	cd infra && docker compose down
+
+# Generate self-signed dev TLS certs (output gitignored under certs/).
+certs:
+	./scripts/gen-dev-certs.sh

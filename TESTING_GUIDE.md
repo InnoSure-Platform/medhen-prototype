@@ -4,21 +4,25 @@ This guide provides a structured, step-by-step walkthrough to boot up the entire
 
 ---
 
-## Step 1: Boot Up the Backend Mesh & Infrastructure
+## Step 1: Boot Up the Backend & Infrastructure
 
-The entire backend and infrastructure stack is orchestrated via a single command. This will spin up Keycloak, PostgreSQL, Kafka, and Valkey via Docker, build your Go microservices, and configure the Envoy proxy gateway dynamically.
+The platform is a single **modular-monolith** service (`medhen-api`). Start the infra backbone
+(Keycloak, PostgreSQL, Kafka, Valkey) via Docker, then run the monolith.
 
 1. Open a new terminal at the root of the project: `~/Documents/ITG/Medhen Prototype/`
-2. Run the mesh command:
+2. Start infrastructure and the API:
    ```bash
-   make mesh
+   make infra-up
+   export DATABASE_URL="postgres://medhen:medhen@localhost:5432/medhen?sslmode=disable"
+   export TELEBIRR_WEBHOOK_SECRET="dev-secret"
+   make api            # builds + runs medhen-api on :8080
    ```
-3. **Verification**: 
-   - Wait about 15-30 seconds for the containers and microservices to stabilize.
+3. **Verification**:
    - Run `docker ps` to ensure `medhen-keycloak-1`, `medhen-postgres-1`, etc., are running.
-   - Verify Envoy is routing properly by pinging the gateway:
+   - The API logs `medhen-api listening` with the list of registered modules.
+   - Ping the health endpoint:
      ```bash
-     curl -I http://localhost:8080/
+     curl -s http://localhost:8080/healthz
      ```
 
 ## Step 2: Start the Next.js Frontend

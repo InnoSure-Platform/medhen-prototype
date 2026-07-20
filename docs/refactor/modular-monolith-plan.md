@@ -338,8 +338,15 @@ document → notification → reporting → iam`. 20 test packages green. Full l
 every module: quote → underwrite → bind → issue → COI → invoice → Telebirr-pay → SMS → FNOL → settle →
 KPIs, with every state change in the immutable audit trail.
 
-- [ ] **Cutover** (Phase 3 tail): delete `services/pc-*-svc`, collapse per-service `go.mod`, remove
-  `go.work` — now that all contexts run in the monolith.
+- [x] **Cutover DONE (2026-07-20):** deleted all 15 `services/pc-*-svc` and 5 relocated `libs/*`, removed
+  `go.work`/`go.work.sum` — the repo is now a **single Go module**. Removed mesh tooling
+  (`scripts/mesh-*.sh`, `demo-e2e.sh`, per-service `pc-notification-svc-ci.yml`); rewrote the `Makefile`
+  (monolith `build`/`api`/`test`/`test-integration`) and `pipeline.yml` (`go build/vet/test ./...`);
+  rewrote `README.md` and `TESTING_GUIDE.md` for the monolith. `docker-compose.yml` was already
+  infra-only (Postgres/Valkey/Kafka/Keycloak). Verified: `go build/vet ./...` clean, 20 test packages
+  green standalone (no workspace), module graph is root-only. `pc-workflow-svc` (Temporal orchestration)
+  and `pc-observability-svc` (SLO) were intentionally not carried over — orchestration is now event
+  choreography; observability is Phase 8.
 
 ### Phase 4 — Core flow correctness (Motor vertical, D6)
 **Goal:** one real, atomic, event-emitting end-to-end spine.

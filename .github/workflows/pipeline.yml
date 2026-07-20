@@ -77,17 +77,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: Build & vet all Go modules
-        run: |
-          for mod in $(go list -m -f '{{.Dir}}'); do
-            echo "== build $mod =="
-            (cd "$mod" && go build ./... && go vet ./...)
-          done
-      - name: Platform tests (unit + testcontainers integration)
+      - name: Build & vet
+        run: go build ./... && go vet ./...
+      - name: Tests (unit + testcontainers integration)
         # ubuntu-latest ships Docker, so testcontainers (Postgres/Redis) works.
-        run: |
-          go test -race ./internal/...
-          (cd libs/pc-auth-sdk && go test ./...)
+        run: go test -race ./...
 
   build-web:
     runs-on: ubuntu-latest

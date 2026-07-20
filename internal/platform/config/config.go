@@ -31,13 +31,13 @@ type Config struct {
 // Load reads configuration from the environment.
 func Load() Config {
 	return Config{
-		Env:             getenv("MEDHEN_ENV", "dev"),
-		HTTPAddr:        getenv("MEDHEN_HTTP_ADDR", ":8080"),
-		ShutdownTimeout: getdur("MEDHEN_SHUTDOWN_TIMEOUT", 15*time.Second),
-		ReadTimeout:     getdur("MEDHEN_READ_TIMEOUT", 15*time.Second),
-		WriteTimeout:    getdur("MEDHEN_WRITE_TIMEOUT", 30*time.Second),
-		DatabaseURL:     os.Getenv("DATABASE_URL"),
-		OutboxPollInterval: getdur("MEDHEN_OUTBOX_POLL", time.Second),
+		Env:                   getenv("MEDHEN_ENV", "dev"),
+		HTTPAddr:              getenv("MEDHEN_HTTP_ADDR", ":8080"),
+		ShutdownTimeout:       getdur("MEDHEN_SHUTDOWN_TIMEOUT", 15*time.Second),
+		ReadTimeout:           getdur("MEDHEN_READ_TIMEOUT", 15*time.Second),
+		WriteTimeout:          getdur("MEDHEN_WRITE_TIMEOUT", 30*time.Second),
+		DatabaseURL:           os.Getenv("DATABASE_URL"),
+		OutboxPollInterval:    getdur("MEDHEN_OUTBOX_POLL", time.Second),
 		TelebirrWebhookSecret: os.Getenv("TELEBIRR_WEBHOOK_SECRET"),
 	}
 }

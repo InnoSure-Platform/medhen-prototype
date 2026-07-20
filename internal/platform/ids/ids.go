@@ -32,7 +32,7 @@ type Sequencer interface {
 // InMemorySequencer is a concurrency-safe in-process Sequencer. It does NOT
 // survive restarts and must not be used across replicas.
 type InMemorySequencer struct {
-	mu      sync.Mutex
+	mu       sync.Mutex
 	counters map[string]int64
 }
 

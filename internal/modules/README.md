@@ -1,8 +1,9 @@
 # internal/modules
 
-Each subdirectory is a **sealed bounded context** in the modular monolith.
-Modules migrate here from `services/pc-*-svc` during Phase 3 of
-[`docs/refactor/modular-monolith-plan.md`](../../docs/refactor/modular-monolith-plan.md).
+Each subdirectory is a **sealed bounded context** in the modular monolith. All 13
+were migrated here in Phase 3 of
+[`docs/refactor/modular-monolith-plan.md`](../../docs/refactor/modular-monolith-plan.md);
+the old `services/pc-*-svc` mesh has been removed.
 
 ## Rules (enforced by arch-lint — see `.go-arch-lint.yml`)
 
@@ -22,11 +23,12 @@ Modules migrate here from `services/pc-*-svc` during Phase 3 of
 ├── ports/      # PUBLIC interfaces this module exposes + consumes
 ├── adapters/   # driven adapters (postgres repos, external clients)
 ├── rest/       # driving adapter (HTTP handlers)
-├── events/     # domain events published/consumed
 └── module.go   # implements app.Module: Name/Init/Mount + facade wiring
 ```
 
-## Target modules (13)
+Domain events live in `domain/events.go` (they are part of the domain contract).
+
+## Modules (13, all migrated)
 
 `iam` · `party` · `product` · `rating` · `underwriting` · `policy` · `billing` ·
 `claims` · `document` · `notification` · `integration` · `audit` · `reporting`

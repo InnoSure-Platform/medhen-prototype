@@ -12,7 +12,9 @@ import (
 )
 
 // fakeRepo is an in-memory Repository for unit tests.
-type fakeRepo struct{ items map[string]*domain.Notification }
+type fakeRepo struct {
+	items map[string]*domain.Notification
+}
 
 func newFakeRepo() *fakeRepo { return &fakeRepo{items: map[string]*domain.Notification{}} }
 

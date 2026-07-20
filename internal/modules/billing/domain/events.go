@@ -4,8 +4,8 @@ import "time"
 
 // Topics published by the billing module.
 const (
-	TopicInvoiceRaised    = "billing.invoice_raised"
-	TopicPaymentReceived  = "billing.payment_received"
+	TopicInvoiceRaised   = "billing.invoice_raised"
+	TopicPaymentReceived = "billing.payment_received"
 )
 
 // InvoiceRaised is emitted when an invoice is raised for an issued policy.

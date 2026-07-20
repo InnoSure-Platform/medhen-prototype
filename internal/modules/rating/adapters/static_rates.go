@@ -30,8 +30,8 @@ func NewMotorRateTable() *StaticRateTable {
 			{"MOT", "TPL"}: money.FromInt(800),  // third-party liability
 		},
 		factors: map[factorKey]decimal.Decimal{
-			{"MOT", "OD", "AGE", "young"}: decimal.NewFromFloat(1.25),
-			{"MOT", "OD", "AGE", "adult"}: decimal.NewFromFloat(1.00),
+			{"MOT", "OD", "AGE", "young"}:  decimal.NewFromFloat(1.25),
+			{"MOT", "OD", "AGE", "adult"}:  decimal.NewFromFloat(1.00),
 			{"MOT", "OD", "AGE", "senior"}: decimal.NewFromFloat(1.10),
 		},
 	}

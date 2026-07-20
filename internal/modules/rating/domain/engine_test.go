@@ -82,9 +82,9 @@ func TestCalculate_IncludesStampDutyLine(t *testing.T) {
 func TestCalculate_ValidationErrors(t *testing.T) {
 	e := newEngine()
 	cases := []ports.PremiumRequest{
-		{ProductCode: "MOT", Coverages: []string{"OD"}},        // no tenant
-		{TenantID: "eic", Coverages: []string{"OD"}},           // no product
-		{TenantID: "eic", ProductCode: "MOT"},                  // no coverages
+		{ProductCode: "MOT", Coverages: []string{"OD"}}, // no tenant
+		{TenantID: "eic", Coverages: []string{"OD"}},    // no product
+		{TenantID: "eic", ProductCode: "MOT"},           // no coverages
 	}
 	for i, c := range cases {
 		if _, err := e.Calculate(context.Background(), c); err == nil {
