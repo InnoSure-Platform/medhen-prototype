@@ -374,6 +374,29 @@ Steps:
 **Acceptance:** `migrate up` from clean DB builds full schema; RLS tests prove tenant isolation;
 no `GRANT ALL`.
 
+**Status — DONE (2026-07-20):**
+- [x] Migration tool: in-house transactional migrator [`internal/platform/migrate`](../../internal/platform/migrate/migrate.go)
+  (versioned, `schema_migrations`-tracked, idempotent). Chosen over goose/atlas so the platform kernel
+  stays module-agnostic: the composition root assembles the ordered list from each module's own `Schema`
+  const (single source of truth, no drift) + a security migration. Replaces the `applySchemas` stopgap;
+  runs at boot. Verified live: 12 applied on clean DB, 0 on restart. Tests: apply/idempotent/ordered +
+  failed-migration rollback.
+- [x] **Least-privilege role**: security migration provisions `medhen_app` (LOGIN, not owner/superuser)
+  with **DML-only grants** (SELECT/INSERT/UPDATE/DELETE) — no `GRANT ALL`, no DDL. Verified via
+  `information_schema.role_table_grants`.
+- [x] **RLS**: `tenant_isolation` policy (`USING` + `WITH CHECK` on `app.current_tenant`) enabled on all
+  11 tenant-scoped tables; global tables (products/*) excluded. `database.WithinTenantTx` sets the
+  per-tx GUC. RLS integration test proves: no-tenant read = 0 rows (fail-closed), each tenant sees only
+  its rows, cross-tenant insert blocked by `WITH CHECK`.
+- [x] **TLS (M10)**: `.env.example` documents `sslmode=require` + connecting as `medhen_app` in non-local
+  envs; the app warns at boot if `MEDHEN_ENV!=dev` and `sslmode=disable`.
+- [~] **Deferred (documented):** (a) physical schema-per-module (separate Postgres schemas) — kept a
+  single `public` schema to avoid rewriting every repo's SQL; RLS already enforces the tenant boundary
+  (the security-critical part). (b) Full *runtime* RLS enforcement requires connecting the pool as
+  `medhen_app` and routing tenant-scoped reads through `WithinTenantTx` — the mechanism + role + policies
+  are in place and proven; flipping the default connection to the app role lands with Phase 6 edge auth
+  (tenant-from-token).
+
 ### Phase 6 — API edge & web hardening
 **Goal:** secure, contract-driven edge.
 Steps:
@@ -390,6 +413,28 @@ Steps:
 6. Kill remaining `any`; type the API client against generated OpenAPI types (M7).
 **Acceptance:** no token in browser storage/URL; RBAC enforced server-side (tested); CSP present; typed
 API client; a11y lint clean.
+
+**Status — PARTIAL (2026-07-20):**
+- [x] **Edge authentication + server-side RBAC (API)**: [`auth.EdgeMiddleware`](../../internal/platform/auth/edge.go)
+  wired into the monolith edge. Public paths bypass (health + HMAC Telebirr webhook); when Keycloak is
+  configured a valid Bearer token is required (401), claims go on the context, and per-prefix role rules
+  are enforced (403). Dev (no Keycloak) = pass-through. 6 unit tests (public bypass, dev passthrough,
+  401 missing/bad token, authenticated-no-rule, 403 missing role, 200 matching role, longest-prefix).
+- [x] **Web tokens (C5/H9)**: deleted the dead ROPC password-grant + `localStorage` token path
+  (`lib/auth.ts`, `/api/auth/login`); login is NextAuth Authorization-Code only.
+- [x] **H8**: federated logout now reads the id_token from the server-side session (`getToken`), never the
+  URL; the id_token is no longer exposed in the client session either.
+- [x] **RBAC (C4, web)**: `middleware.ts` gates `/admin`,`/broker`,`/staff` server-side by role + requires
+  a session on all protected routes.
+- [x] **CSP + security headers (M8)**: `next.config.ts` sets CSP (no `unsafe-eval` in prod), HSTS,
+  X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy — verified served at runtime.
+- [ ] **Deferred (needs the app running against the monolith):** author `api/openapi/medhen.v1.yaml` +
+  generated typed client (step 1, M7); **realign `web/lib/api.ts`** — it still targets deleted mesh
+  gateway paths (`/api/pc-*/v1/...`) instead of the monolith routes (`/party/parties`, `/policy/quotes`,
+  …) **and** route calls through server-side Next handlers so the access token never reaches the browser
+  (remainder of C5); replace `prompt()`/`parseInt` money entry (M7); stop rendering raw backend error
+  bodies (M8); a11y labels. Also flip the DB pool to connect as `medhen_app` + thread tenant-from-token
+  into `WithinTenantTx` to activate runtime RLS (Phase 5 hook).
 
 ### Phase 7 — Testing & quality gates
 **Goal:** the "everything is tested and gated" bar.

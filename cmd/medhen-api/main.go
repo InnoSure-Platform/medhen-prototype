@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -51,6 +52,7 @@ import (
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/eventbus"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/httpx"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/ids"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/migrate"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/outbox"
 	"github.com/shopspring/decimal"
@@ -95,12 +97,16 @@ func run(logger *slog.Logger) error {
 	relayCtx, stopRelay := context.WithCancel(context.Background())
 	defer stopRelay()
 	if cfg.DatabaseURL != "" {
+		// M10: never run without TLS to Postgres outside local dev.
+		if cfg.Env != "dev" && strings.Contains(cfg.DatabaseURL, "sslmode=disable") {
+			logger.Warn("DATABASE_URL uses sslmode=disable in a non-dev environment — enable TLS (sslmode=require)")
+		}
 		db, err := database.Connect(relayCtx, cfg.DatabaseURL)
 		if err != nil {
 			return err
 		}
 		defer db.Close()
-		if err := applySchemas(relayCtx, db); err != nil {
+		if err := runMigrations(relayCtx, db, logger); err != nil {
 			return err
 		}
 		kernel.DB = db
@@ -127,7 +133,25 @@ func run(logger *slog.Logger) error {
 	mux.HandleFunc("GET /readyz", healthHandler)
 	registry.MountAll(mux)
 
-	handler := httpx.Chain(mux, httpx.RequestID, httpx.Recover(logger))
+	// Edge authentication + server-side RBAC. Public paths bypass auth (health +
+	// the HMAC-authenticated Telebirr webhook). When Keycloak is not configured
+	// the middleware is a pass-through (dev), and handlers read X-Tenant-ID.
+	public := []string{"/healthz", "/readyz", "/billing/webhooks/telebirr"}
+	rbac := []auth.AccessRule{
+		{Prefix: "/iam/", AnyOf: []string{"admin"}},
+		{Prefix: "/audit/", AnyOf: []string{"staff", "admin"}},
+		{Prefix: "/claims/", AnyOf: []string{"claims", "staff", "admin"}},
+		{Prefix: "/billing/", AnyOf: []string{"finance", "staff", "admin"}},
+		{Prefix: "/policy/", AnyOf: []string{"agent", "staff", "admin"}},
+		{Prefix: "/party/", AnyOf: []string{"agent", "staff", "admin"}},
+		// /product, /reporting, /document require only a valid token.
+	}
+
+	handler := httpx.Chain(mux,
+		httpx.RequestID,
+		httpx.Recover(logger),
+		auth.EdgeMiddleware(validator, public, rbac),
+	)
 
 	srv := &http.Server{
 		Addr:         cfg.HTTPAddr,
@@ -266,16 +290,66 @@ type relayedEvent struct {
 func (e relayedEvent) EventName() string { return e.topic }
 func (e relayedEvent) Payload() []byte   { return e.payload }
 
-// applySchemas creates the platform + module tables. This is a stopgap until the
-// migration tool lands in Phase 5.
-func applySchemas(ctx context.Context, db *database.DB) error {
-	for _, ddl := range []string{outbox.Schema, auditadapters.Schema, partyadapters.Schema, productadapters.Schema, policyadapters.Schema, billingadapters.Schema, claimsadapters.Schema, documentadapters.Schema, notificationadapters.Schema, reportingadapters.Schema, iamadapters.Schema} {
-		if _, err := db.Pool().Exec(ctx, ddl); err != nil {
-			return err
-		}
+// runMigrations builds the ordered migration set from each module's own DDL (the
+// single source of truth) plus a final security migration (least-privilege role
+// + row-level security), and applies it transactionally. Idempotent: already-
+// applied migrations are skipped, so this runs safely at every boot.
+func runMigrations(ctx context.Context, db *database.DB, logger *slog.Logger) error {
+	migrations := []migrate.Migration{
+		{Version: 1, Name: "platform_outbox", SQL: outbox.Schema},
+		{Version: 2, Name: "audit", SQL: auditadapters.Schema},
+		{Version: 3, Name: "party", SQL: partyadapters.Schema},
+		{Version: 4, Name: "product", SQL: productadapters.Schema},
+		{Version: 5, Name: "policy", SQL: policyadapters.Schema},
+		{Version: 6, Name: "billing", SQL: billingadapters.Schema},
+		{Version: 7, Name: "claims", SQL: claimsadapters.Schema},
+		{Version: 8, Name: "document", SQL: documentadapters.Schema},
+		{Version: 9, Name: "notification", SQL: notificationadapters.Schema},
+		{Version: 10, Name: "reporting", SQL: reportingadapters.Schema},
+		{Version: 11, Name: "iam", SQL: iamadapters.Schema},
+		{Version: 100, Name: "security_roles_rls", SQL: securityMigration},
 	}
+	n, err := migrate.Apply(ctx, db.Pool(), migrations)
+	if err != nil {
+		return err
+	}
+	logger.Info("schema migrations applied", "count", n)
 	return nil
 }
+
+// securityMigration provisions a least-privilege application role (no GRANT ALL,
+// no DDL) and enables row-level security on every tenant-scoped table. The table
+// owner/superuser bypasses RLS (used for migrations/admin); the app role does
+// not, so connecting the pool as medhen_app enforces tenant isolation at the DB.
+// Enforcement is active per transaction via database.WithinTenantTx, which sets
+// app.current_tenant.
+const securityMigration = `
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'medhen_app') THEN
+    CREATE ROLE medhen_app LOGIN PASSWORD 'medhen_app';
+  END IF;
+END $$;
+
+GRANT USAGE ON SCHEMA public TO medhen_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO medhen_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO medhen_app;
+
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'parties','quotes','policies','invoices','payments','claims',
+    'documents','notifications','audit_log','reporting_kpis','iam_users'
+  ] LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %I', t);
+    EXECUTE format($f$CREATE POLICY tenant_isolation ON %I
+        USING (tenant_id = current_setting('app.current_tenant', true))
+        WITH CHECK (tenant_id = current_setting('app.current_tenant', true))$f$, t);
+  END LOOP;
+END $$;
+`
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

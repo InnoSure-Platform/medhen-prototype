@@ -97,3 +97,22 @@ func (d *DB) WithinTx(ctx context.Context, fn func(ctx context.Context) error) (
 	}
 	return nil
 }
+
+// WithinTenantTx runs fn in a transaction with the tenant bound to the
+// `app.current_tenant` setting for the life of the transaction. Postgres
+// row-level-security policies read this setting to enforce tenant isolation, so
+// tenant-scoped writes/reads made under the least-privilege application role only
+// see their own tenant's rows. Passing an empty tenantID is rejected.
+func (d *DB) WithinTenantTx(ctx context.Context, tenantID string, fn func(ctx context.Context) error) error {
+	if tenantID == "" {
+		return errors.New("database: WithinTenantTx requires a non-empty tenant")
+	}
+	return d.WithinTx(ctx, func(ctx context.Context) error {
+		// set_config(..., true) scopes the value to the current transaction.
+		if _, err := d.Conn(ctx).Exec(ctx,
+			`SELECT set_config('app.current_tenant', $1, true)`, tenantID); err != nil {
+			return fmt.Errorf("database: set tenant: %w", err)
+		}
+		return fn(ctx)
+	})
+}
