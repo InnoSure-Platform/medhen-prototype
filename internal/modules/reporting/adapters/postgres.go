@@ -6,9 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+
 	reportapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/reporting/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
-	"github.com/jackc/pgx/v5"
 )
 
 // Schema is the DDL for the KPI projection.

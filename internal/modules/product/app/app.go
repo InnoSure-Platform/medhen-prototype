@@ -5,10 +5,11 @@ import (
 	"context"
 	"errors"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/product/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/product/ports"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
-	"github.com/shopspring/decimal"
 )
 
 // ErrNotFound is returned when a product does not exist.

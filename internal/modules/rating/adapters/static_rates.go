@@ -7,8 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
 	"github.com/shopspring/decimal"
+
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
 )
 
 type baseKey struct{ product, coverage string }

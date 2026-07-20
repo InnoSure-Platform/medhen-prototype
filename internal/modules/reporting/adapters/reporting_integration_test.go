@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/reporting/adapters"
-	reportapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/reporting/app"
-	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/reporting/adapters"
+	reportapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/reporting/app"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 )
 
 func newService(t *testing.T) *reportapp.Service {

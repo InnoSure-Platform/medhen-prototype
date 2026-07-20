@@ -7,11 +7,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+
 	billingapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/billing/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/billing/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
-	"github.com/jackc/pgx/v5"
 )
 
 // Schema is the DDL for the billing module's tables.

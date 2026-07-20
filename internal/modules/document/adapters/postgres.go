@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+
 	docapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/document/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/document/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
-	"github.com/jackc/pgx/v5"
 )
 
 // Schema is the DDL for the document module's table.

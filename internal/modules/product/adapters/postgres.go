@@ -7,12 +7,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/product/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/product/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
-	"github.com/jackc/pgx/v5"
-	"github.com/shopspring/decimal"
 )
 
 // Schema is the DDL for the product module's tables.

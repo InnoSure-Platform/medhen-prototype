@@ -1,9 +1,10 @@
 package adapters
 
 import (
+	"github.com/shopspring/decimal"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/product/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
-	"github.com/shopspring/decimal"
 )
 
 // MotorProduct returns the seed definition for the EIC Motor product: own-damage

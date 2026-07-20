@@ -1,10 +1,18 @@
-package app_test
+// Package e2e holds cross-module integration tests that wire several bounded
+// contexts together (party + product + rating + underwriting + policy). They live
+// outside any single module so they may legitimately import multiple modules.
+package e2e_test
 
 import (
 	"context"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/shopspring/decimal"
+	"github.com/testcontainers/testcontainers-go"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
 
 	partyadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/adapters"
 	partyapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/app"
@@ -19,10 +27,6 @@ import (
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/outbox"
-	"github.com/shopspring/decimal"
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 // partyReader adapts the party service to policy's consumed party port.

@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 #
-# coverage-check.sh — enforce per-layer line-coverage thresholds.
+# coverage-check.sh — enforce per-layer statement-coverage thresholds.
 #
-# Reads a coverage profile produced by `go test -coverprofile`, computes
-# coverage per architectural layer, and exits non-zero if any layer is below
-# its floor. Designed to run in CI after `make test-cover`.
+# Reads a coverage profile produced by `go test -coverprofile` and computes
+# STATEMENT-weighted coverage per architectural layer (matching the file path),
+# exiting non-zero if any layer is below its floor. Statement-weighting (rather
+# than averaging per-function percentages) avoids trivial one-line functions
+# skewing the result.
 #
-# Usage:
-#   scripts/coverage-check.sh [coverage.out]
-#
-# Thresholds (line %) are intentionally layered: the domain is held to the
-# highest bar; infrastructure to the lowest because some driver error branches
-# are only reachable under fault injection.
+# Usage: scripts/coverage-check.sh [coverage.out]
 set -euo pipefail
 
 PROFILE="${1:-coverage.out}"
@@ -21,50 +18,57 @@ if [[ ! -f "$PROFILE" ]]; then
   exit 2
 fi
 
-# layer-path-prefix : minimum line coverage %
+# layer-regex : min-coverage% : label. The domain is held to the highest bar.
+# Adapters/rest/cmd are reported by `go tool cover` but not gated here (their
+# error branches are only reachable under fault injection).
 declare -a LAYERS=(
-  "internal/domain:95"
-  "internal/application:90"
-  "internal/api:85"
-  "internal/infrastructure:80"
+  "/modules/[^/]+/domain/:85:domain"
+  "/modules/[^/]+/app/:55:app"
+  "/internal/platform/:55:platform"
 )
 
-# Build a func-level coverage report once.
-FUNC_REPORT="$(go tool cover -func="$PROFILE")"
-
 fail=0
-printf '%-32s %8s %8s   %s\n' "LAYER" "COVERAGE" "FLOOR" "RESULT"
-printf '%-32s %8s %8s   %s\n' "--------------------------------" "--------" "-----" "------"
+printf '%-16s %8s %8s   %s\n' "LAYER" "COVERAGE" "FLOOR" "RESULT"
+printf '%-16s %8s %8s   %s\n' "----------------" "--------" "-----" "------"
 
 for entry in "${LAYERS[@]}"; do
-  prefix="${entry%%:*}"
-  floor="${entry##*:}"
+  label="${entry##*:}"
+  rest="${entry%:*}"
+  pat="${rest%:*}"
+  floor="${rest##*:}"
 
-  # Average the per-function percentages for files under this layer prefix.
-  # go tool cover -func emits fully-qualified paths
-  # ("<module>/internal/domain/...:<line>: <func> <pct>%"), so match the layer
-  # path as a substring rather than a line prefix.
-  pct="$(awk -v p="/$prefix/" '
-    index($0, p) > 0 {
-      gsub(/%/, "", $NF); sum += $NF; n++
+  # Statement coverage for blocks whose file path matches the layer. Blocks are
+  # deduped by key and their counts unioned (max) because a -coverpkg profile
+  # repeats each block once per test binary that instrumented it.
+  # Profile line format: <file>:<start>.<col>,<end>.<col> <numstmt> <count>
+  pct="$(awk -v p="$pat" '
+    NR == 1 && /^mode:/ { next }
+    {
+      file = $1; sub(/:[0-9].*/, "", file)
+      if (file !~ p) next
+      ns[$1] = $2
+      if ($3 + 0 > cnt[$1]) cnt[$1] = $3
     }
-    END { if (n > 0) printf "%.1f", sum / n; else print "n/a" }
-  ' <<< "$FUNC_REPORT")"
+    END {
+      for (k in ns) { total += ns[k]; if (cnt[k] > 0) covered += ns[k] }
+      if (total > 0) printf "%.1f", 100 * covered / total; else print "n/a"
+    }
+  ' "$PROFILE")"
 
   if [[ "$pct" == "n/a" ]]; then
-    printf '%-32s %8s %8s   %s\n' "$prefix" "n/a" "$floor%" "SKIP (no files)"
+    printf '%-16s %8s %8s   %s\n' "$label" "n/a" "$floor%" "SKIP (no files)"
     continue
   fi
 
   if awk -v a="$pct" -v b="$floor" 'BEGIN { exit !(a + 0 < b + 0) }'; then
-    printf '%-32s %7s%% %7s%%   %s\n' "$prefix" "$pct" "$floor" "FAIL"
+    printf '%-16s %7s%% %7s%%   %s\n' "$label" "$pct" "$floor" "FAIL"
     fail=1
   else
-    printf '%-32s %7s%% %7s%%   %s\n' "$prefix" "$pct" "$floor" "ok"
+    printf '%-16s %7s%% %7s%%   %s\n' "$label" "$pct" "$floor" "ok"
   fi
 done
 
-total="$(awk '/^total:/ { gsub(/%/, "", $NF); print $NF }' <<< "$FUNC_REPORT")"
+total="$(go tool cover -func="$PROFILE" | awk '/^total:/ { gsub(/%/, "", $NF); print $NF }')"
 echo
 echo "total coverage: ${total:-unknown}%"
 

@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/testcontainers/testcontainers-go"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims/adapters"
 	claimsapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims/domain"
@@ -12,9 +16,6 @@ import (
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/outbox"
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 // stubPolicyReader lets the claims tests control policy lookups.

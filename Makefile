@@ -1,5 +1,5 @@
 # Medhen Makefile — single modular-monolith module.
-.PHONY: build api test test-integration vet web infra-up infra-down certs
+.PHONY: build api test test-integration test-cover cover lint arch-lint vet web infra-up infra-down certs
 
 # Build the monolith binary.
 build:
@@ -18,6 +18,22 @@ test:
 # Full suite including testcontainers integration tests (requires Docker).
 test-integration:
 	go test -race ./...
+
+# Full suite with cross-package coverage profile (requires Docker).
+test-cover:
+	go test -coverpkg=./internal/... -coverprofile=coverage.out ./...
+
+# Enforce per-layer coverage floors on the profile from `make test-cover`.
+cover: test-cover
+	bash scripts/coverage-check.sh coverage.out
+
+# Static analysis (config: .golangci.yml).
+lint:
+	golangci-lint run ./...
+
+# Sealed-module boundary check (config: .go-arch-lint.yml).
+arch-lint:
+	go-arch-lint check --project-path .
 
 vet:
 	go vet ./...

@@ -6,10 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 )
 
 // TestRLS_TenantIsolation proves the Phase-5 security model end-to-end: a table

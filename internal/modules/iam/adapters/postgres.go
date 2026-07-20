@@ -7,10 +7,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+
 	iamapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/iam/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/iam/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
-	"github.com/jackc/pgx/v5"
 )
 
 // Schema is the DDL for the IAM module's table.

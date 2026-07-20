@@ -1,0 +1,31 @@
+# golangci-lint configuration for the Medhen modular monolith.
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - unconvert
+    - bodyclose
+    - gofmt
+    - goimports
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/InnoSure-Platform/medhen-prototype
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Test helpers frequently ignore errors on cleanup/best-effort paths.
+    - path: _test\.go
+      linters:
+        - errcheck
+        - bodyclose

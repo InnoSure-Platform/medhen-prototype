@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/migrate"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/migrate"
 )
 
 func newPool(t *testing.T) *pgxpool.Pool {

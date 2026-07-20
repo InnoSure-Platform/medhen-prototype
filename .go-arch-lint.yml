@@ -12,6 +12,16 @@
 version: 3
 workdir: .
 
+# Third-party libraries may be imported anywhere (the boundary rules below govern
+# only intra-repo dependencies between our own components).
+allow:
+  depOnAnyVendor: true
+
+# Directories not part of the Go module graph (transient worktrees, web app).
+exclude:
+  - .claude
+  - web
+
 components:
   platform:
     in: internal/platform/**
@@ -45,6 +55,8 @@ components:
     in: internal/modules/reporting/**
   module-iam:
     in: internal/modules/iam/**
+  e2e:
+    in: internal/e2e/**
   # All 13 bounded contexts migrated (Phase 3 complete).
 
 deps:
@@ -71,29 +83,35 @@ deps:
       - module-document
       - module-reporting
       - module-iam
+  # NB: each module lists itself so its own layers (domain/app/adapters/rest/
+  # module.go) may import each other; cross-module deps are listed explicitly and
+  # in practice only reach another module's `ports` package.
   module-rating:
     mayDependOn:
       - platform
       - app-kernel
-      # NB: may depend on OTHER modules' `ports` packages only (added per pair
-      # as cross-module calls appear, e.g. policy → rating/ports).
+      - module-rating
   module-party:
     mayDependOn:
       - platform
       - app-kernel
+      - module-party
   module-product:
     mayDependOn:
       - platform
       - app-kernel
+      - module-product
       - module-rating # implements rating/ports.RateTableProvider (cross-module)
   module-underwriting:
     mayDependOn:
       - platform
       - app-kernel
+      - module-underwriting
   module-policy:
     mayDependOn:
       - platform
       - app-kernel
+      - module-policy
       - module-rating       # consumes rating/ports.Calculator
       - module-party        # consumes party/ports.Reader
       - module-underwriting # consumes underwriting/ports.Decider
@@ -101,41 +119,67 @@ deps:
     mayDependOn:
       - platform
       - app-kernel
+      - module-billing
       # consumes policy.issued via the event bus (JSON contract), not code
   module-claims:
     mayDependOn:
       - platform
       - app-kernel
+      - module-claims
       - module-policy # consumes policy/ports.Reader to validate cover at FNOL
   module-audit:
     mayDependOn:
       - platform
       - app-kernel
+      - module-audit
       # subscribes to all events via the bus (SubscribeAll); no module code deps
   module-integration:
     mayDependOn:
       - platform
       - app-kernel
+      - module-integration
   module-notification:
     mayDependOn:
       - platform
       - app-kernel
+      - module-notification
       - module-integration # consumes integration/ports.SmsSender
       - module-party       # consumes party/ports.Reader (recipient lookup)
   module-document:
     mayDependOn:
       - platform
       - app-kernel
+      - module-document
       - module-party # consumes party/ports.Reader (insured name)
   module-reporting:
     mayDependOn:
       - platform
       - app-kernel
+      - module-reporting
       # projects policy.issued/claims.settled via the bus (JSON contract)
   module-iam:
     mayDependOn:
       - platform
       - app-kernel
+      - module-iam
+  # Cross-module e2e tests may wire any module together.
+  e2e:
+    mayDependOn:
+      - platform
+      - app-kernel
+      - module-rating
+      - module-party
+      - module-product
+      - module-underwriting
+      - module-policy
+      - module-billing
+      - module-claims
+      - module-audit
+      - module-integration
+      - module-notification
+      - module-document
+      - module-reporting
+      - module-iam
 
 # commonComponents may be depended on by anyone (the shared kernel).
 commonComponents:

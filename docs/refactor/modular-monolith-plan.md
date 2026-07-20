@@ -446,6 +446,26 @@ Steps:
 5. CI gates: build, lint, arch-lint, coverage threshold, govulncheck, trivy, gitleaks — all blocking.
 **Acceptance:** CI enforces every gate; coverage threshold met; flaky-free e2e in CI.
 
+**Status — DONE (2026-07-20):**
+- [x] **Domain unit tests** added for every module that lacked them (party, product, policy, billing,
+  claims, document, notification, iam) + a `platform/config` test. Domain layer now **93.2%** statement
+  coverage.
+- [x] **Coverage gate**: [`scripts/coverage-check.sh`](../../scripts/coverage-check.sh) rewritten for the
+  module layout — statement-weighted, block-deduped (handles `-coverpkg`), per-layer floors
+  domain 85 / app 55 / platform 55. Verified on a full `-coverpkg` profile: domain 93.2, app 60.7,
+  platform 60.0 → PASS. `make test-cover` / `make cover`.
+- [x] **Lint**: `.golangci.yml` (errcheck, govet, staticcheck, unused, ineffassign, misspell, unconvert,
+  bodyclose, gofmt, goimports) — clean. `make lint`.
+- [x] **arch-lint**: `.go-arch-lint.yml` fixed for v1.16 (vendor allow, per-component self-deps, worktree
+  exclude) — "No warnings". `make arch-lint`.
+- [x] **e2e suite** (step 4): the cross-module Motor-spine test moved to `internal/e2e` (party → product →
+  rating → underwriting → policy, atomic issue + refer/rebind failure paths); its own arch-lint component.
+- [x] **CI gates blocking**: `pipeline.yml` — govulncheck, golangci-lint, go-arch-lint, and the coverage
+  gate are now blocking; trivy vuln+secret blocking, misconfig report-only (Phase 8); Go bumped to 1.26.3
+  (clears the stdlib advisories). `docker-build` now needs all gates green. gitleaks already blocking.
+- [ ] **Deferred:** contract tests against the OpenAPI spec (the spec itself is the deferred Phase 6 item);
+  HTTP-level e2e (the in-process vertical test already covers the spine + failure paths).
+
 ### Phase 8 — Observability & delivery
 **Goal:** run it like production.
 Steps:

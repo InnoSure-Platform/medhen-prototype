@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/audit"
 	auditadapters "github.com/InnoSure-Platform/medhen-prototype/internal/modules/audit/adapters"
@@ -55,7 +57,6 @@ import (
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/migrate"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/outbox"
-	"github.com/shopspring/decimal"
 )
 
 func main() {

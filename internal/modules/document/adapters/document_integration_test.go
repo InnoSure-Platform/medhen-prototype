@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/testcontainers/testcontainers-go"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/document/adapters"
 	docapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/document/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/outbox"
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func newService(t *testing.T) (*docapp.Service, *database.DB) {

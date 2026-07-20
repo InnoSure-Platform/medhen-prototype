@@ -7,7 +7,9 @@ on:
     branches: [ "main" ]
 
 env:
-  GO_VERSION: '1.26'
+  # Patched toolchain: fixes the go1.26.2 net/http stdlib advisories flagged by
+  # govulncheck (which is a blocking gate below).
+  GO_VERSION: '1.26.3'
 
 jobs:
   # --- Security gates ------------------------------------------------------
@@ -26,46 +28,64 @@ jobs:
 
   vuln-scan:
     runs-on: ubuntu-latest
-    # Report-only for now; flip to blocking in Phase 7 once findings are cleared.
-    continue-on-error: true
+    # Blocking (Phase 7): fails on any vulnerability reachable from our code.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: govulncheck (all modules)
+      - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          for mod in $(go list -m -f '{{.Dir}}'); do
-            echo "== govulncheck $mod =="
-            (cd "$mod" && govulncheck ./...) || true
-          done
+          govulncheck ./...
 
   lint:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    # Blocking (Phase 7). Config: .golangci.yml
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: golangci-lint (all modules)
+      - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v1.64.8
           args: --timeout=5m
+
+  arch-lint:
+    runs-on: ubuntu-latest
+    # Blocking (Phase 7): enforces sealed-module boundaries (.go-arch-lint.yml).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: go-arch-lint check
+        run: |
+          go install github.com/fe3dback/go-arch-lint@v1.16.0
+          "$(go env GOPATH)/bin/go-arch-lint" check --project-path .
 
   trivy-fs:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    # Vuln + secret scanning is blocking; misconfig (K8s/Docker) is reported only
+    # until the Phase 8 infra hardening lands.
     steps:
       - uses: actions/checkout@v4
-      - name: Trivy filesystem scan (vuln, secret, misconfig)
+      - name: Trivy filesystem scan (vuln, secret)
         uses: aquasecurity/trivy-action@0.24.0
         with:
           scan-type: fs
           scan-ref: .
-          scanners: vuln,secret,misconfig
+          scanners: vuln,secret
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+      - name: Trivy misconfig (report-only — Phase 8)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: misconfig
           severity: CRITICAL,HIGH
           exit-code: '0'
 
@@ -79,9 +99,13 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - name: Build & vet
         run: go build ./... && go vet ./...
-      - name: Tests (unit + testcontainers integration)
+      - name: Tests + coverage (unit + testcontainers integration)
         # ubuntu-latest ships Docker, so testcontainers (Postgres/Redis) works.
-        run: go test -race ./...
+        # -coverpkg attributes cross-package coverage (e.g. an adapter test that
+        # exercises its module's app/domain code).
+        run: go test -race -coverpkg=./internal/... -coverprofile=coverage.out ./...
+      - name: Coverage gate (per-layer floors)
+        run: bash scripts/coverage-check.sh coverage.out
 
   build-web:
     runs-on: ubuntu-latest
@@ -103,7 +127,7 @@ jobs:
           KEYCLOAK_ISSUER: http://localhost:8081/realms/medhen
 
   docker-build:
-    needs: [secret-scan, test-go, build-web]
+    needs: [secret-scan, vuln-scan, lint, arch-lint, trivy-fs, test-go, build-web]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:

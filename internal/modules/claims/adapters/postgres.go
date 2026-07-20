@@ -6,11 +6,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+
 	claimsapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
-	"github.com/jackc/pgx/v5"
 )
 
 // Schema is the DDL for the claims module's tables.

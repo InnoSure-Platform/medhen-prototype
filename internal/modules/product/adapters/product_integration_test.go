@@ -5,14 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/product/adapters"
-	ratingdomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/domain"
-	ratingports "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/ports"
-	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/shopspring/decimal"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/product/adapters"
+	ratingdomain "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/domain"
+	ratingports "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/ports"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 )
 
 func newRepo(t *testing.T) *adapters.ProductRepository {

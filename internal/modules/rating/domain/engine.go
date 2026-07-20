@@ -8,10 +8,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/ports"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/ids"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
-	"github.com/shopspring/decimal"
 )
 
 // TaxPolicy configures the levies applied to net premium. In a full system this

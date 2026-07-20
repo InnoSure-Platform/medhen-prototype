@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
-	"github.com/jackc/pgx/v5"
 )
 
 // Schema is the DDL for the party module's tables (its own schema-per-module).

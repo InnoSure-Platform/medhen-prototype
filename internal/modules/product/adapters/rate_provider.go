@@ -3,10 +3,11 @@ package adapters
 import (
 	"context"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/product/app"
 	ratingports "github.com/InnoSure-Platform/medhen-prototype/internal/modules/rating/ports"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
-	"github.com/shopspring/decimal"
 )
 
 // RateProvider adapts the product repository to the rating module's

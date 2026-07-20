@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/idempotency"
 	"github.com/redis/go-redis/v9"
 	"github.com/testcontainers/testcontainers-go"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/idempotency"
 )
 
 func startRedis(t *testing.T) redis.UniversalClient {
