@@ -17,7 +17,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medhen -d medhen"]
+      test: [ "CMD-SHELL", "pg_isready -U medhen -d medhen" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -27,7 +27,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: [ "CMD", "valkey-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -47,24 +47,24 @@ services:
       - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - CLUSTER_ID=4L6g3nShT-eMCtK--X86sw
 
-#   ozone:
-#     image: apache/ozone:1.4.0
-#     ports:
-#       - "9878:9878"
-#       - "9862:9862"
+  #   ozone:
+  #     image: apache/ozone:1.4.0
+  #     ports:
+  #       - "9878:9878"
+  #       - "9862:9862"
 
-#   iceberg-rest:
-#     image: tabulario/iceberg-rest-image:latest
-#     ports:
-#       - "8181:8181"
-#     environment:
-#       - CATALOG_WAREHOUSE=s3://warehouse/
-#       - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
-#       - CATALOG_S3_ENDPOINT=http://ozone:9878
+  #   iceberg-rest:
+  #     image: tabulario/iceberg-rest-image:latest
+  #     ports:
+  #       - "8181:8181"
+  #     environment:
+  #       - CATALOG_WAREHOUSE=s3://warehouse/
+  #       - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
+  #       - CATALOG_S3_ENDPOINT=http://ozone:9878
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
-    command: ["start-dev", "--import-realm"]
+    command: [ "start-dev", "--import-realm" ]
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -83,37 +83,37 @@ services:
 #     ports:
 #       - "4317:4317"
 #       - "4318:4318"
-# 
+#
 #   mimir:
 #     image: grafana/mimir:2.15.0
 #     ports:
 #       - "9009:9009"
-# 
+#
 #   loki:
 #     image: grafana/loki:3.0.0
 #     ports:
 #       - "3100:3100"
-# 
+#
 #   tempo:
 #     image: grafana/tempo:2.4.0
 #     ports:
 #       - "3200:3200"
-# 
+#
 #   grafana:
 #     image: grafana/grafana:11.0.0
 #     ports:
 #       - "3000:3000"
-# 
+#
 #   mailpit:
 #     image: axllent/mailpit
 #     ports:
 #       - "1025:1025"
 #       - "8025:8025"
-# 
+#
 #     depends_on:
 #       - postgres
 #       - otel-collector
-# 
+#
 #   temporal:
 #     image: temporalio/auto-setup:1.24.2
 #     ports:
@@ -126,7 +126,7 @@ services:
 #       - POSTGRES_SEEDS=postgres
 #     depends_on:
 #       - postgres
-# 
+#
 #   temporal-ui:
 #     image: temporalio/ui:2.27.0
 #     ports:

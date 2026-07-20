@@ -58,7 +58,7 @@ export default function ClaimPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="animate-rise mx-auto max-w-3xl px-6 py-12">
 
       <div className="mb-10 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50 text-brand-blue-600 mb-6 border border-blue-100 shadow-sm">
@@ -69,13 +69,13 @@ export default function ClaimPage() {
       </div>
 
       {err && (
-        <div className="mb-8 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-start gap-3 animate-in fade-in slide-in-from-top-2" role="alert">
+        <div className="mb-8 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-start gap-3 animate-rise" role="alert">
           <svg className="w-5 h-5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           <div className="text-sm font-medium">{err}</div>
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 shadow-xl rounded-2xl overflow-hidden relative">
+      <div className="card overflow-hidden relative">
         {busy && (
           <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
             <div className="w-10 h-10 border-4 border-brand-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -127,7 +127,7 @@ export default function ClaimPage() {
 
             </div>
           ) : (
-            <div className="space-y-8 animate-in slide-in-from-right-4">
+            <div className="space-y-8 animate-rise">
 
               <div className="text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-brand-blue-600 mb-4 ring-8 ring-blue-50/50">

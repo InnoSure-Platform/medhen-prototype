@@ -103,11 +103,12 @@ export default function QuotePage() {
   const currentStepNumber = STEPS.find((s) => s.id === step)?.number || 1;
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="animate-rise mx-auto max-w-4xl px-6 py-12">
 
       {/* Header & Step Indicator */}
       <div className="mb-12">
-        <h1 className="text-4xl font-display font-bold text-slate-900 mb-8 tracking-tight">{t("quoteTitle", locale)}</h1>
+        <span className="eyebrow mb-4">{locale === "am" ? "የመኪና መድን" : "Motor · new business"}</span>
+        <h1 className="mt-3 mb-8 text-4xl font-bold tracking-tight text-slate-900">{t("quoteTitle", locale)}</h1>
 
         <nav aria-label="Progress">
           <ol role="list" className="flex items-center">
@@ -150,24 +151,26 @@ export default function QuotePage() {
       </div>
 
       {err && (
-        <div className="mb-8 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-start gap-3 animate-in fade-in slide-in-from-top-2" role="alert">
+        <div className="mb-8 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-start gap-3 animate-rise" role="alert">
           <svg className="w-5 h-5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           <div className="text-sm font-medium">{err}</div>
         </div>
       )}
 
       {/* Main Content Area */}
-      <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-8 sm:p-10 relative overflow-hidden">
+      <div className="card card-pad relative overflow-hidden">
         {busy && (
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-            <div className="w-10 h-10 border-4 border-brand-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="mt-4 font-semibold text-brand-blue-600 tracking-wide animate-pulse">Processing securely...</p>
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-600 border-t-transparent"></div>
+            <p className="mt-4 animate-pulse font-semibold tracking-wide text-brand-600">
+              {locale === "am" ? "በደህና በማስኬድ ላይ…" : "Processing securely…"}
+            </p>
           </div>
         )}
 
         {/* STEP 1: PARTY */}
         {step === "party" && (
-          <div className="space-y-8 animate-in slide-in-from-right-4">
+          <div className="space-y-8 animate-rise">
             <div>
               <h2 className="text-2xl font-bold text-slate-900 font-display">Personal Information</h2>
               <p className="text-slate-500 mt-1">Please provide your details to begin the quotation process.</p>
@@ -202,7 +205,7 @@ export default function QuotePage() {
 
         {/* STEP 2: RISK */}
         {step === "risk" && (
-          <div className="space-y-8 animate-in slide-in-from-right-4">
+          <div className="space-y-8 animate-rise">
             <div>
               <h2 className="text-2xl font-bold text-slate-900 font-display">Asset Information</h2>
               <p className="text-slate-500 mt-1">Provide the details of the vehicle you want to insure.</p>
@@ -261,7 +264,7 @@ export default function QuotePage() {
 
         {/* STEP 3: QUOTE SUMMARY */}
         {step === "quote" && quote && (
-          <div className="space-y-8 animate-in slide-in-from-right-4">
+          <div className="space-y-8 animate-rise">
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-emerald-50 border border-emerald-200 rounded-xl">
               <div>
@@ -308,7 +311,7 @@ export default function QuotePage() {
 
         {/* STEP 4: DONE / SUCCESS */}
         {step === "done" && policy && (
-          <div className="space-y-8 animate-in slide-in-from-bottom-4">
+          <div className="space-y-8 animate-rise">
 
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6 ring-8 ring-emerald-50">
