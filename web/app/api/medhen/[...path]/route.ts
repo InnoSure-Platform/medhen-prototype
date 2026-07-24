@@ -8,7 +8,20 @@ import { NextRequest, NextResponse } from "next/server";
 // URL and tenant are server-only env (NOT NEXT_PUBLIC_*), so neither the token
 // nor the API origin leak to the client bundle.
 const MEDHEN_API = (process.env.MEDHEN_API ?? "http://localhost:8080").replace(/\/$/, "");
-const TENANT = process.env.MEDHEN_TENANT ?? "eic";
+const DEFAULT_TENANT = process.env.MEDHEN_TENANT ?? "eic";
+// Tenants a client may select via the medhen_tenant cookie (server allowlist so
+// the browser can never target an unauthorised tenant). Defaults to the single
+// configured tenant.
+const ALLOWED_TENANTS = new Set(
+  (process.env.MEDHEN_ALLOWED_TENANTS ?? DEFAULT_TENANT).split(",").map((s) => s.trim()).filter(Boolean),
+);
+
+// Defense-in-depth role gate for clearly privileged prefixes (the monolith
+// enforces RBAC authoritatively; this blocks obviously-unauthorised calls early).
+const PROXY_RULES: { prefix: string; roles: string[] }[] = [
+  { prefix: "iam", roles: ["admin"] },
+  { prefix: "audit", roles: ["staff", "claims", "admin"] },
+];
 
 // Only these client-supplied headers are forwarded upstream; everything else
 // (cookies, host, forged auth/tenant) is dropped and set server-side.
@@ -20,6 +33,18 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  const role = (token.role as string) ?? "";
+  const top = path[0] ?? "";
+  for (const rule of PROXY_RULES) {
+    if (top === rule.prefix && !rule.roles.includes(role)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+  }
+
+  // Resolve the tenant: honour a client-selected tenant only if server-allowlisted.
+  const requested = req.cookies.get("medhen_tenant")?.value;
+  const tenant = requested && ALLOWED_TENANTS.has(requested) ? requested : DEFAULT_TENANT;
+
   const upstreamPath = "/" + path.map(encodeURIComponent).join("/");
   const search = req.nextUrl.search;
   const url = `${MEDHEN_API}${upstreamPath}${search}`;
@@ -30,7 +55,7 @@ async function proxy(req: NextRequest, path: string[]): Promise<NextResponse> {
     if (v) headers.set(name, v);
   }
   headers.set("Authorization", `Bearer ${token.accessToken}`);
-  headers.set("X-Tenant-ID", TENANT);
+  headers.set("X-Tenant-ID", tenant);
 
   const method = req.method.toUpperCase();
   const hasBody = method !== "GET" && method !== "HEAD";

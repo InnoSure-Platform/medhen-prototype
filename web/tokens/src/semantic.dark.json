@@ -1,0 +1,45 @@
+{
+  "bg": {
+    "canvas":   { "value": "{color.neutral.950}", "type": "color" },
+    "surface":  { "value": "{color.neutral.900}", "type": "color" },
+    "subtle":   { "value": "{color.neutral.800}", "type": "color" },
+    "muted":    { "value": "{color.neutral.700}", "type": "color" },
+    "inverse":  { "value": "{color.neutral.0}",   "type": "color" }
+  },
+  "fg": {
+    "default":  { "value": "{color.neutral.100}", "type": "color" },
+    "muted":    { "value": "{color.neutral.400}", "type": "color" },
+    "subtle":   { "value": "{color.neutral.500}", "type": "color" },
+    "onbrand":  { "value": "{color.neutral.0}",   "type": "color" },
+    "inverse":  { "value": "{color.neutral.900}", "type": "color" }
+  },
+  "border": {
+    "default":  { "value": "{color.neutral.800}", "type": "color" },
+    "strong":   { "value": "{color.neutral.700}", "type": "color" },
+    "subtle":   { "value": "{color.neutral.800}", "type": "color" }
+  },
+  "brand": {
+    "default":  { "value": "{color.brand.500}",   "type": "color" },
+    "hover":    { "value": "{color.brand.400}",   "type": "color" },
+    "subtle":   { "value": "{color.brand.950}",   "type": "color" },
+    "border":   { "value": "{color.brand.800}",   "type": "color" },
+    "fg":       { "value": "{color.brand.300}",   "type": "color" }
+  },
+  "accent": {
+    "default":  { "value": "{color.gold.500}",    "type": "color" },
+    "subtle":   { "value": "{color.gold.600}",    "type": "color" }
+  },
+  "success": { "default": { "value": "{color.green.500}", "type": "color" }, "subtle": { "value": "#052e2b", "type": "color" }, "fg": { "value": "#6ee7b7", "type": "color" } },
+  "warning": { "default": { "value": "{color.amber.500}", "type": "color" }, "subtle": { "value": "#3a2a06", "type": "color" }, "fg": { "value": "#fcd34d", "type": "color" } },
+  "danger":  { "default": { "value": "{color.red.500}",   "type": "color" }, "subtle": { "value": "#3f1113", "type": "color" }, "fg": { "value": "#fca5a5", "type": "color" } },
+  "info":    { "default": { "value": "{color.sky.500}",   "type": "color" }, "subtle": { "value": "#082f42", "type": "color" }, "fg": { "value": "#7dd3fc", "type": "color" } },
+  "ring":    { "value": "{color.brand.500}", "type": "color" },
+  "chart": {
+    "1": { "value": "{color.brand.400}",  "type": "color" },
+    "2": { "value": "{color.teal.500}",   "type": "color" },
+    "3": { "value": "{color.gold.500}",   "type": "color" },
+    "4": { "value": "{color.violet.500}", "type": "color" },
+    "5": { "value": "{color.sky.500}",    "type": "color" },
+    "6": { "value": "{color.rose.500}",   "type": "color" }
+  }
+}

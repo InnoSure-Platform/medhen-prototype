@@ -1,0 +1,4 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "ignorePatterns": ["node_modules/", ".next/", "!.storybook", "lib/api/schema.d.ts", "styles/tokens.css", "styles/primitives.css"]
+}
