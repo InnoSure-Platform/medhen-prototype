@@ -6,8 +6,10 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/app"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/party/domain"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/auth"
 )
 
@@ -26,6 +28,7 @@ func New(svc *app.Service, logger *slog.Logger) *Handler {
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /parties", h.register)
+	mux.HandleFunc("GET /parties", h.list)
 	mux.HandleFunc("GET /parties/{id}", h.get)
 	return mux
 }
@@ -46,6 +49,28 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+}
+
+func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
+	limit, offset := 50, 0
+	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 {
+		limit = v
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	if v, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && v >= 0 {
+		offset = v
+	}
+	items, err := h.svc.List(r.Context(), auth.TenantOrHeader(r), limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list failed")
+		return
+	}
+	if items == nil {
+		items = []*domain.Party{}
+	}
+	writeJSON(w, http.StatusOK, items)
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {

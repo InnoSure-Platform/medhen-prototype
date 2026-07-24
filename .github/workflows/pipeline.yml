@@ -109,19 +109,43 @@ jobs:
 
   build-web:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
       - name: Install dependencies
-        run: cd web && npm ci
+        run: pnpm install --frozen-lockfile
+      - name: Generate API types
+        run: pnpm gen:api
+      - name: Build design tokens
+        run: pnpm tokens:build
       - name: Typecheck
-        run: cd web && npx tsc --noEmit
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Unit tests
+        run: pnpm test
       - name: Build Next.js
-        run: cd web && npm run build
+        run: pnpm build
         env:
           # CI-only placeholder secrets so the fail-closed auth config can build.
+          KEYCLOAK_SECRET: ci-placeholder
+          NEXTAUTH_SECRET: ci-placeholder
+          KEYCLOAK_ISSUER: http://localhost:8081/realms/medhen
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+      - name: E2E smoke (public surfaces)
+        run: pnpm test:e2e
+        env:
           KEYCLOAK_SECRET: ci-placeholder
           NEXTAUTH_SECRET: ci-placeholder
           KEYCLOAK_ISSUER: http://localhost:8081/realms/medhen

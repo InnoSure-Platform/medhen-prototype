@@ -16,6 +16,7 @@ import (
 	uwports "github.com/InnoSure-Platform/medhen-prototype/internal/modules/underwriting/ports"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/database"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/ids"
+	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/outbox"
 )
 
@@ -29,12 +30,14 @@ var ErrPartyNotFound = errors.New("policy: party not found")
 type QuoteRepository interface {
 	Save(ctx context.Context, q *domain.Quote) error
 	Get(ctx context.Context, tenantID, id string) (*domain.Quote, error)
+	List(ctx context.Context, tenantID string, limit, offset int) ([]*domain.Quote, error)
 }
 
 // PolicyRepository persists policies and issues gap-free policy sequences.
 type PolicyRepository interface {
 	Save(ctx context.Context, p *domain.Policy) error
 	Get(ctx context.Context, tenantID, id string) (*domain.Policy, error)
+	List(ctx context.Context, tenantID string, limit, offset int) ([]*domain.Policy, error)
 	NextSequence(ctx context.Context, name string) (int64, error)
 }
 
@@ -170,4 +173,120 @@ func (s *Service) GetQuote(ctx context.Context, tenantID, id string) (*domain.Qu
 // GetPolicy loads a policy.
 func (s *Service) GetPolicy(ctx context.Context, tenantID, id string) (*domain.Policy, error) {
 	return s.deps.Policies.Get(ctx, tenantID, id)
+}
+
+// ListPolicies returns a tenant's issued policies (newest first), paginated.
+func (s *Service) ListPolicies(ctx context.Context, tenantID string, limit, offset int) ([]*domain.Policy, error) {
+	return s.deps.Policies.List(ctx, tenantID, limit, offset)
+}
+
+// ListQuotes returns a tenant's quotes (newest first), paginated.
+func (s *Service) ListQuotes(ctx context.Context, tenantID string, limit, offset int) ([]*domain.Quote, error) {
+	return s.deps.Quotes.List(ctx, tenantID, limit, offset)
+}
+
+// EndorsePolicy adjusts an in-force policy's premium by a signed delta and emits
+// PolicyEndorsed — atomically.
+func (s *Service) EndorsePolicy(ctx context.Context, tenantID, policyID string, deltaMinor int64, reason string) (*domain.Policy, error) {
+	p, err := s.deps.Policies.Get(ctx, tenantID, policyID)
+	if err != nil {
+		return nil, err
+	}
+	err = s.deps.DB.WithinTx(ctx, func(ctx context.Context) error {
+		if err := p.Endorse(money.FromMinor(deltaMinor)); err != nil {
+			return err
+		}
+		if err := s.deps.Policies.Save(ctx, p); err != nil {
+			return err
+		}
+		return s.writeEvent(ctx, domain.TopicPolicyEndorsed, p.ID, domain.PolicyEndorsed{
+			PolicyID: p.ID, TenantID: tenantID, DeltaMinor: deltaMinor,
+			NewGrossMinor: p.GrossPremium.Minor(), Reason: reason, OccurredAt: time.Now().UTC(),
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// CancelPolicy cancels an in-force policy and emits PolicyCancelled (with the
+// pro-rata refund estimate) — atomically.
+func (s *Service) CancelPolicy(ctx context.Context, tenantID, policyID, reason string) (*domain.Policy, money.Amount, error) {
+	p, err := s.deps.Policies.Get(ctx, tenantID, policyID)
+	if err != nil {
+		return nil, money.Zero(), err
+	}
+	var refund money.Amount
+	err = s.deps.DB.WithinTx(ctx, func(ctx context.Context) error {
+		var cerr error
+		refund, cerr = p.Cancel(reason, time.Now().UTC())
+		if cerr != nil {
+			return cerr
+		}
+		if err := s.deps.Policies.Save(ctx, p); err != nil {
+			return err
+		}
+		return s.writeEvent(ctx, domain.TopicPolicyCancelled, p.ID, domain.PolicyCancelled{
+			PolicyID: p.ID, TenantID: tenantID, Reason: reason,
+			RefundMinor: refund.Minor(), OccurredAt: time.Now().UTC(),
+		})
+	})
+	if err != nil {
+		return nil, money.Zero(), err
+	}
+	return p, refund, nil
+}
+
+// RenewPolicy issues a successor policy for the next term. The renewal is treated
+// downstream as a new issuance (emits PolicyIssued so billing/COI/notification
+// fire) plus PolicyRenewed for the audit trail — all in ONE transaction.
+func (s *Service) RenewPolicy(ctx context.Context, tenantID, policyID string) (*domain.Policy, error) {
+	prior, err := s.deps.Policies.Get(ctx, tenantID, policyID)
+	if err != nil {
+		return nil, err
+	}
+	if prior.Status != domain.StatusIssued {
+		return nil, domain.ErrNotInForce
+	}
+
+	var next *domain.Policy
+	err = s.deps.DB.WithinTx(ctx, func(ctx context.Context) error {
+		now := time.Now().UTC()
+		seqName := fmt.Sprintf("%s-%d", prior.ProductCode, prior.EffectiveTo.Year())
+		seq, err := s.deps.Policies.NextSequence(ctx, seqName)
+		if err != nil {
+			return err
+		}
+		number := ids.PolicyNumber(s.deps.Insurer, prior.ProductCode, prior.EffectiveTo.Year(), seq)
+		next = prior.Renew(number)
+		if err := s.deps.Policies.Save(ctx, next); err != nil {
+			return err
+		}
+		if err := s.writeEvent(ctx, domain.TopicPolicyRenewed, next.ID, domain.PolicyRenewed{
+			PolicyID: next.ID, PriorPolicyID: prior.ID, PolicyNumber: next.PolicyNumber,
+			TenantID: tenantID, OccurredAt: now,
+		}); err != nil {
+			return err
+		}
+		return s.writeEvent(ctx, domain.TopicPolicyIssued, next.ID, domain.PolicyIssued{
+			PolicyID: next.ID, PolicyNumber: next.PolicyNumber, TenantID: tenantID,
+			PartyID: next.PartyID, ProductCode: next.ProductCode,
+			GrossMinor: next.GrossPremium.Minor(), OccurredAt: now,
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return next, nil
+}
+
+func (s *Service) writeEvent(ctx context.Context, topic, aggID string, evt any) error {
+	payload, err := json.Marshal(evt)
+	if err != nil {
+		return fmt.Errorf("policy: marshal event: %w", err)
+	}
+	return outbox.Write(ctx, s.deps.DB.Conn(ctx), outbox.Message{
+		ID: ids.New(), Topic: topic, AggregateType: "policy", AggregateID: aggID, Payload: payload,
+	})
 }

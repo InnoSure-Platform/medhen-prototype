@@ -31,6 +31,9 @@ var (
 type ClaimRepository interface {
 	Save(ctx context.Context, c *domain.Claim) error
 	Get(ctx context.Context, tenantID, id string) (*domain.Claim, error)
+	// List returns claims for a tenant, newest first, filtered by optional status
+	// and paginated by limit/offset.
+	List(ctx context.Context, tenantID, status string, limit, offset int) ([]*domain.Claim, error)
 }
 
 // Deps are the claims service's collaborators.
@@ -120,6 +123,12 @@ func (s *Service) FastTrackSettle(ctx context.Context, tenantID, claimID string,
 // GetClaim loads a claim.
 func (s *Service) GetClaim(ctx context.Context, tenantID, id string) (*domain.Claim, error) {
 	return s.deps.Claims.Get(ctx, tenantID, id)
+}
+
+// ListClaims returns a tenant's claims (newest first), optionally filtered by
+// status and paginated.
+func (s *Service) ListClaims(ctx context.Context, tenantID, status string, limit, offset int) ([]*domain.Claim, error) {
+	return s.deps.Claims.List(ctx, tenantID, status, limit, offset)
 }
 
 func writeEvent(ctx context.Context, db *database.DB, topic, aggType, aggID string, evt any) error {

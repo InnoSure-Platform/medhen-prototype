@@ -2,11 +2,28 @@
   "realm": "medhen",
   "enabled": true,
   "displayName": "Medhen Platform",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
+  "verifyEmail": true,
   "editUsernameAllowed": false,
+  "rememberMe": true,
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyLookAheadWindow": 1,
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "noreply@eic-et.com",
+    "fromDisplayName": "Medhen · EIC",
+    "ssl": "false",
+    "starttls": "false",
+    "auth": "false"
+  },
   "clients": [
     {
       "clientId": "pc-gateway",
@@ -26,7 +43,8 @@
       "directAccessGrantsEnabled": true,
       "redirectUris": ["http://localhost:3000/*"],
       "webOrigins": ["http://localhost:3000"],
-      "protocol": "openid-connect"
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "email"]
     }
   ],
   "roles": {
@@ -38,10 +56,12 @@
       { "name": "admin", "description": "Platform administrator" }
     ]
   },
+  "defaultRoles": ["customer"],
   "users": [
     {
       "username": "demo-agent",
       "enabled": true,
+      "emailVerified": true,
       "email": "agent@eic-et.com",
       "firstName": "Demo",
       "lastName": "Agent",
@@ -51,11 +71,32 @@
     {
       "username": "demo-claims",
       "enabled": true,
+      "emailVerified": true,
       "email": "claims@eic-et.com",
       "firstName": "Demo",
       "lastName": "Claims",
       "credentials": [{ "type": "password", "value": "medhen-demo", "temporary": false }],
       "realmRoles": ["claims", "staff"]
+    },
+    {
+      "username": "demo-customer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "customer@eic-et.com",
+      "firstName": "Demo",
+      "lastName": "Customer",
+      "credentials": [{ "type": "password", "value": "medhen-demo", "temporary": false }],
+      "realmRoles": ["customer"]
+    },
+    {
+      "username": "demo-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin@eic-et.com",
+      "firstName": "Demo",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "medhen-demo", "temporary": false }],
+      "realmRoles": ["admin", "staff"]
     }
   ]
 }

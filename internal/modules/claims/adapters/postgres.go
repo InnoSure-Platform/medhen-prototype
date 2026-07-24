@@ -60,6 +60,42 @@ func (r *ClaimRepository) Save(ctx context.Context, c *domain.Claim) error {
 	return nil
 }
 
+// List returns a tenant's claims (newest first), filtered by optional status.
+func (r *ClaimRepository) List(ctx context.Context, tenantID, status string, limit, offset int) ([]*domain.Claim, error) {
+	where := "tenant_id=$1"
+	args := []any{tenantID, limit, offset}
+	if status != "" {
+		where += " AND status=$4"
+		args = append(args, status)
+	}
+	rows, err := r.db.Conn(ctx).Query(ctx,
+		`SELECT id, tenant_id, policy_id, party_id, status, description, latitude, longitude,
+		        reserve_minor, settled_minor, created_at, updated_at, version
+		   FROM claims WHERE `+where+`
+		  ORDER BY created_at DESC LIMIT $2 OFFSET $3`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("claim repo: list: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*domain.Claim
+	for rows.Next() {
+		var c domain.Claim
+		var reserve, settled int64
+		if err := rows.Scan(&c.ID, &c.TenantID, &c.PolicyID, &c.PartyID, &c.Status, &c.Description,
+			&c.Latitude, &c.Longitude, &reserve, &settled, &c.CreatedAt, &c.UpdatedAt, &c.Version); err != nil {
+			return nil, fmt.Errorf("claim repo: list scan: %w", err)
+		}
+		c.Reserve = money.FromMinor(reserve)
+		c.SettledAmount = money.FromMinor(settled)
+		out = append(out, &c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("claim repo: list rows: %w", err)
+	}
+	return out, nil
+}
+
 // Get loads a claim scoped to a tenant.
 func (r *ClaimRepository) Get(ctx context.Context, tenantID, id string) (*domain.Claim, error) {
 	var c domain.Claim

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	claimsapp "github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims/app"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/modules/claims/domain"
@@ -22,6 +23,7 @@ func New(svc *claimsapp.Service) *Handler { return &Handler{svc: svc} }
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /claims", h.fnol)
+	mux.HandleFunc("GET /claims", h.list)
 	mux.HandleFunc("GET /claims/{id}", h.get)
 	mux.HandleFunc("POST /claims/{id}/settle", h.settle)
 	return mux
@@ -75,6 +77,19 @@ func (h *Handler) settle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
+	limit, offset := pageParams(r)
+	items, err := h.svc.ListClaims(r.Context(), auth.TenantOrHeader(r), r.URL.Query().Get("status"), limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list failed")
+		return
+	}
+	if items == nil {
+		items = []*domain.Claim{}
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	c, err := h.svc.GetClaim(r.Context(), auth.TenantOrHeader(r), r.PathValue("id"))
 	if errors.Is(err, claimsapp.ErrNotFound) {
@@ -96,4 +111,19 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// pageParams parses limit/offset with a sane default (50) and cap (200).
+func pageParams(r *http.Request) (limit, offset int) {
+	limit, offset = 50, 0
+	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 {
+		limit = v
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	if v, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && v >= 0 {
+		offset = v
+	}
+	return limit, offset
 }

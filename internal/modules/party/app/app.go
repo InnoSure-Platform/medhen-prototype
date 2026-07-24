@@ -24,6 +24,7 @@ var ErrNotFound = errors.New("party: not found")
 type Repository interface {
 	Save(ctx context.Context, p *domain.Party) error
 	GetByID(ctx context.Context, tenantID, id string) (*domain.Party, error)
+	List(ctx context.Context, tenantID string, limit, offset int) ([]*domain.Party, error)
 }
 
 // RegisterInput is the command payload for registering an individual.
@@ -84,4 +85,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (string, error
 // Get loads a party by id within a tenant.
 func (s *Service) Get(ctx context.Context, tenantID, id string) (*domain.Party, error) {
 	return s.repo.GetByID(ctx, tenantID, id)
+}
+
+// List returns a tenant's parties (newest first), paginated.
+func (s *Service) List(ctx context.Context, tenantID string, limit, offset int) ([]*domain.Party, error) {
+	return s.repo.List(ctx, tenantID, limit, offset)
 }
