@@ -106,6 +106,61 @@ func (s *Service) GetInvoice(ctx context.Context, tenantID, id string) (*domain.
 	return s.deps.Invoices.Get(ctx, tenantID, id)
 }
 
+// GetInvoiceByPolicy loads the invoice raised for a policy (so the UI can resolve
+// an invoice from a policy id).
+func (s *Service) GetInvoiceByPolicy(ctx context.Context, tenantID, policyID string) (*domain.Invoice, error) {
+	return s.deps.Invoices.GetByPolicy(ctx, tenantID, policyID)
+}
+
+// PaymentIntent is the handle returned by InitiatePayment for a Telebirr checkout.
+type PaymentIntent struct {
+	InvoiceID   string `json:"invoice_id"`
+	Reference   string `json:"reference"`
+	AmountMinor int64  `json:"amount_minor"`
+	CheckoutURL string `json:"checkout_url"`
+	Status      string `json:"status"`
+}
+
+// ErrAlreadyPaid is returned when initiating payment on a settled invoice.
+var ErrAlreadyPaid = errors.New("billing: invoice already paid")
+
+// InitiatePayment starts a Telebirr checkout for an invoice's outstanding amount:
+// it generates a payment reference, emits PaymentInitiated (audited), and returns
+// a checkout handle. The payment is only APPLIED later by the HMAC-verified
+// webhook (RecordPayment), so this is safe to call from the browser flow.
+func (s *Service) InitiatePayment(ctx context.Context, tenantID, invoiceID, checkoutBase string) (*PaymentIntent, error) {
+	inv, err := s.deps.Invoices.Get(ctx, tenantID, invoiceID)
+	if err != nil {
+		return nil, err
+	}
+	if inv.Status == domain.InvoicePaid {
+		return nil, ErrAlreadyPaid
+	}
+
+	outstanding := inv.Outstanding()
+	reference := ids.New()
+	err = s.deps.DB.WithinTx(ctx, func(ctx context.Context) error {
+		return writeEvent(ctx, s.deps.DB, domain.TopicPaymentInitiated, "invoice", invoiceID, domain.PaymentInitiated{
+			InvoiceID: invoiceID, TenantID: tenantID, Reference: reference,
+			Amount: outstanding.Minor(), OccurredAt: time.Now().UTC(),
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if checkoutBase == "" {
+		checkoutBase = "https://checkout.telebirr.et/pay"
+	}
+	return &PaymentIntent{
+		InvoiceID:   invoiceID,
+		Reference:   reference,
+		AmountMinor: outstanding.Minor(),
+		CheckoutURL: fmt.Sprintf("%s?ref=%s&amount=%d", checkoutBase, reference, outstanding.Minor()),
+		Status:      "PENDING",
+	}, nil
+}
+
 func writeEvent(ctx context.Context, db *database.DB, topic, aggType, aggID string, evt any) error {
 	payload, err := json.Marshal(evt)
 	if err != nil {

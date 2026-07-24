@@ -1,44 +1,62 @@
-import { withAuth } from "next-auth/middleware";
-import { NextResponse } from "next/server";
+import createIntlMiddleware from "next-intl/middleware";
+import { getToken } from "next-auth/jwt";
+import { NextResponse, type NextRequest } from "next/server";
+import { routing } from "@/lib/i18n/routing";
 
-// Role requirements per protected route prefix. A route not listed here but
-// covered by the matcher only requires an authenticated session (any role).
+const intlMiddleware = createIntlMiddleware(routing);
+
+// Role requirements per (locale-stripped) route prefix. A protected prefix not
+// listed here only requires an authenticated session (any role).
 const roleGuards: { prefix: string; roles: string[] }[] = [
   { prefix: "/admin", roles: ["admin"] },
-  { prefix: "/broker", roles: ["broker"] },
-  // The staff workbench (underwriting, claims settlement, reserves, EOD) is the
-  // most privileged surface and must be gated server-side.
+  { prefix: "/broker", roles: ["broker", "admin"] },
+  { prefix: "/finance", roles: ["finance", "staff", "admin"] },
+  // Staff workbench (underwriting, settlement, audit) is the most privileged surface.
   { prefix: "/staff", roles: ["staff", "claims", "admin"] },
 ];
 
-export default withAuth(
-  function middleware(req) {
-    const role = (req.nextauth.token?.role as string) ?? "";
-    const pathname = req.nextUrl.pathname;
+// Any-authenticated prefixes (plus everything guarded above).
+const protectedPrefixes = ["/customer", "/broker", "/staff", "/admin", "/finance"];
 
-    for (const guard of roleGuards) {
-      if (pathname.startsWith(guard.prefix) && !guard.roles.includes(role)) {
-        return NextResponse.redirect(new URL("/login", req.url));
-      }
-    }
+const matches = (rest: string, prefix: string) => rest === prefix || rest.startsWith(prefix + "/");
 
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      // No valid session token → not authorized (redirects to signIn page).
-      authorized: ({ token }) => !!token,
-    },
+export default async function middleware(req: NextRequest) {
+  // 1) Locale negotiation / rewrite (next-intl).
+  const res = intlMiddleware(req);
+
+  // 2) Strip the locale segment to evaluate route protection.
+  const segments = req.nextUrl.pathname.split("/");
+  const locale = routing.locales.includes(segments[1] as never) ? segments[1] : routing.defaultLocale;
+  const rest = "/" + segments.slice(routing.locales.includes(segments[1] as never) ? 2 : 1).join("/");
+
+  const needsAuth = protectedPrefixes.some((p) => matches(rest, p));
+  if (!needsAuth) return res;
+
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+  // Unauthenticated → sign in, preserving the intended destination.
+  if (!token) {
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = `/${locale}/login`;
+    loginUrl.searchParams.set("next", req.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   }
-);
+
+  // Authenticated but lacking the role → 403 (not a login loop).
+  const role = (token.role as string) ?? "";
+  for (const guard of roleGuards) {
+    if (matches(rest, guard.prefix) && !guard.roles.includes(role)) {
+      const forbidden = req.nextUrl.clone();
+      forbidden.pathname = `/${locale}/forbidden`;
+      forbidden.search = "";
+      return NextResponse.redirect(forbidden);
+    }
+  }
+
+  return res;
+}
 
 export const config = {
-  matcher: [
-    "/customer/:path*",
-    "/broker/:path*",
-    "/admin/:path*",
-    "/staff/:path*",
-    "/quote/:path*",
-    "/claim/:path*",
-  ],
+  // Run on everything except API routes, Next internals, and static files.
+  matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
 };

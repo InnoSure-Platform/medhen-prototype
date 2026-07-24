@@ -29,7 +29,9 @@ func New(svc *billingapp.Service, webhookSecret string) *Handler {
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /webhooks/telebirr", h.telebirrWebhook)
+	mux.HandleFunc("GET /invoices/by-policy/{policyId}", h.getInvoiceByPolicy)
 	mux.HandleFunc("GET /invoices/{id}", h.getInvoice)
+	mux.HandleFunc("POST /invoices/{id}/pay-init", h.initiatePayment)
 	return mux
 }
 
@@ -92,6 +94,33 @@ func (h *Handler) getInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, inv)
+}
+
+func (h *Handler) getInvoiceByPolicy(w http.ResponseWriter, r *http.Request) {
+	inv, err := h.svc.GetInvoiceByPolicy(r.Context(), auth.TenantOrHeader(r), r.PathValue("policyId"))
+	if errors.Is(err, billingapp.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "invoice not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "lookup failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, inv)
+}
+
+func (h *Handler) initiatePayment(w http.ResponseWriter, r *http.Request) {
+	intent, err := h.svc.InitiatePayment(r.Context(), auth.TenantOrHeader(r), r.PathValue("id"), "")
+	switch {
+	case errors.Is(err, billingapp.ErrNotFound):
+		writeError(w, http.StatusNotFound, "invoice not found")
+	case errors.Is(err, billingapp.ErrAlreadyPaid):
+		writeError(w, http.StatusConflict, "invoice already paid")
+	case err != nil:
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+	default:
+		writeJSON(w, http.StatusOK, intent)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

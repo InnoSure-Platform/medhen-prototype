@@ -90,3 +90,32 @@ func (r *PartyRepository) GetByID(ctx context.Context, tenantID, id string) (*do
 	}
 	return &p, nil
 }
+
+// List returns a tenant's parties (newest first), paginated.
+func (r *PartyRepository) List(ctx context.Context, tenantID string, limit, offset int) ([]*domain.Party, error) {
+	rows, err := r.db.Conn(ctx).Query(ctx,
+		`SELECT id, tenant_id, type, status, full_name, full_name_amharic, phone_e164,
+		        national_id, region, zone, woreda, kebele, house_number, version,
+		        created_at, updated_at
+		   FROM parties WHERE tenant_id=$1
+		  ORDER BY created_at DESC LIMIT $2 OFFSET $3`, tenantID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("party repo: list: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*domain.Party
+	for rows.Next() {
+		var p domain.Party
+		if err := rows.Scan(&p.ID, &p.TenantID, &p.Type, &p.Status, &p.FullName, &p.FullNameAmharic,
+			&p.PhoneE164, &p.NationalID, &p.Address.Region, &p.Address.Zone, &p.Address.Woreda,
+			&p.Address.Kebele, &p.Address.HouseNumber, &p.Version, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("party repo: list scan: %w", err)
+		}
+		out = append(out, &p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("party repo: list rows: %w", err)
+	}
+	return out, nil
+}

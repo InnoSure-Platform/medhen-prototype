@@ -6,7 +6,9 @@ name: medhen
 
 services:
   postgres:
-    image: postgres:18-alpine
+    # Pinned to 16 to match the app's testcontainers image and avoid the
+    # postgres:18 data-dir mount-point change.
+    image: postgres:16-alpine
     environment:
       POSTGRES_USER: medhen
       POSTGRES_PASSWORD: medhen
@@ -77,6 +79,19 @@ services:
       - ./keycloak/realm-medhen.json:/opt/keycloak/data/import/realm-medhen.json:ro
     ports:
       - "8081:8081"
+    depends_on:
+      - mailpit
+
+  # Dev SMTP sink so Keycloak self-service emails (registration verification,
+  # password reset) are captured locally. UI at http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:latest
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      - "8025:8025"
+      - "1025:1025"
 
 #   otel-collector:
 #     image: otel/opentelemetry-collector-contrib:0.116.0

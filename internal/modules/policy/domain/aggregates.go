@@ -7,6 +7,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/ids"
 	"github.com/InnoSure-Platform/medhen-prototype/internal/platform/money"
 )
@@ -15,6 +17,8 @@ var (
 	ErrQuoteNotBindable = errors.New("policy: quote is not in a bindable state")
 	ErrDeclined         = errors.New("policy: underwriting declined the risk")
 	ErrReferred         = errors.New("policy: underwriting referred the risk (manual review)")
+	ErrNotInForce       = errors.New("policy: not in force")
+	ErrAlreadyCancelled = errors.New("policy: already cancelled")
 )
 
 // QuoteStatus is the quote lifecycle state.
@@ -89,6 +93,10 @@ type Policy struct {
 	EffectiveTo   time.Time
 	IssuedAt      time.Time
 	Version       int
+	// Servicing metadata.
+	PriorPolicyID string     // set on a renewal successor
+	CancelReason  string     // set on cancellation
+	CancelledAt   *time.Time // set on cancellation
 }
 
 // NewPolicy issues a one-year policy from a bound quote.
@@ -99,4 +107,53 @@ func NewPolicy(policyNumber, tenantID, quoteID, partyID, productCode string, gro
 		Status: StatusIssued, EffectiveFrom: effectiveFrom, EffectiveTo: effectiveFrom.AddDate(1, 0, 0),
 		IssuedAt: time.Now().UTC(), Version: 1,
 	}
+}
+
+// Endorse adjusts an in-force policy's gross premium by a (signed) delta,
+// returning the new gross. Only ISSUED policies can be endorsed.
+func (p *Policy) Endorse(premiumDelta money.Amount) error {
+	if p.Status != StatusIssued {
+		return ErrNotInForce
+	}
+	p.GrossPremium = p.GrossPremium.Add(premiumDelta)
+	p.Version++
+	return nil
+}
+
+// Cancel marks the policy CANCELLED with a reason. Returns the pro-rata unearned
+// premium (a refund estimate) based on the remaining term at the cancel date.
+func (p *Policy) Cancel(reason string, at time.Time) (money.Amount, error) {
+	if p.Status == StatusCancelled {
+		return money.Zero(), ErrAlreadyCancelled
+	}
+	refund := p.unearnedPremium(at)
+	p.Status = StatusCancelled
+	p.CancelReason = reason
+	p.CancelledAt = &at
+	p.Version++
+	return refund, nil
+}
+
+// unearnedPremium is the pro-rata premium for the unexpired portion of the term.
+func (p *Policy) unearnedPremium(at time.Time) money.Amount {
+	total := p.EffectiveTo.Sub(p.EffectiveFrom).Hours()
+	if total <= 0 {
+		return money.Zero()
+	}
+	remaining := p.EffectiveTo.Sub(at).Hours()
+	if remaining <= 0 {
+		return money.Zero()
+	}
+	if remaining > total {
+		remaining = total
+	}
+	return p.GrossPremium.Mul(decimal.NewFromFloat(remaining / total)).RoundCurrency()
+}
+
+// Renew builds a successor policy for the next term (same premium), linked back
+// to this policy via PriorPolicyID. The caller assigns the new policy number.
+func (p *Policy) Renew(policyNumber string) *Policy {
+	next := NewPolicy(policyNumber, p.TenantID, p.QuoteID, p.PartyID, p.ProductCode, p.GrossPremium, p.EffectiveTo)
+	next.PriorPolicyID = p.ID
+	return next
 }

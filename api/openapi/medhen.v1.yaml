@@ -50,6 +50,20 @@ paths:
                 properties: { id: { type: string } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+    get:
+      summary: List parties for the tenant (newest first)
+      tags: [party]
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Party" }
   /party/parties/{id}:
     get:
       summary: Get a party
@@ -90,6 +104,20 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Quote" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+    get:
+      summary: List quotes for the tenant (newest first)
+      tags: [policy]
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Quote" }
   /policy/quotes/{id}:
     get:
       summary: Get a quote
@@ -113,6 +141,21 @@ paths:
           description: Referred to underwriter, or quote not bindable
         "422":
           description: Declined
+  /policy/policies:
+    get:
+      summary: List policies for the tenant (newest first)
+      tags: [policy]
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Policy" }
   /policy/policies/{id}:
     get:
       summary: Get a policy
@@ -121,7 +164,83 @@ paths:
       responses:
         "200": { description: OK }
         "404": { $ref: "#/components/responses/NotFound" }
+  /policy/policies/{id}/endorse:
+    post:
+      summary: Endorse an in-force policy (adjust premium by a signed delta)
+      tags: [policy]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [premium_delta_minor]
+              properties:
+                premium_delta_minor: { type: integer, format: int64 }
+                reason: { type: string }
+      responses:
+        "200":
+          description: Endorsed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Policy" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Policy not in force }
+  /policy/policies/{id}/cancel:
+    post:
+      summary: Cancel a policy (returns the pro-rata refund estimate)
+      tags: [policy]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { reason: { type: string } }
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy: { $ref: "#/components/schemas/Policy" }
+                  refund_minor: { type: integer, format: int64 }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Already cancelled }
+  /policy/policies/{id}/renew:
+    post:
+      summary: Renew a policy into a successor term (issues a new policy)
+      tags: [policy]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "201":
+          description: Renewed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Policy" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Policy not in force }
 
+  /billing/invoices/by-policy/{policyId}:
+    get:
+      summary: Get the invoice raised for a policy
+      tags: [billing]
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /billing/invoices/{id}:
     get:
       summary: Get an invoice
@@ -130,6 +249,19 @@ paths:
       responses:
         "200": { description: OK }
         "404": { $ref: "#/components/responses/NotFound" }
+  /billing/invoices/{id}/pay-init:
+    post:
+      summary: Initiate a Telebirr payment for an invoice (returns a checkout handle)
+      tags: [billing]
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Checkout initiated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaymentIntent" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Invoice already paid }
   /billing/webhooks/telebirr:
     post:
       summary: Telebirr payment callback (HMAC-authenticated, not a user endpoint)
@@ -162,6 +294,24 @@ paths:
       responses:
         "201": { description: Claim filed }
         "422": { description: Policy not found or not in force }
+    get:
+      summary: List claims for the tenant (newest first)
+      tags: [claims]
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+        - name: status
+          in: query
+          schema: { type: string }
+          description: Optional status filter (FILED, SETTLED, …).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Claim" }
   /claims/claims/{id}:
     get:
       summary: Get a claim
@@ -248,6 +398,16 @@ components:
       in: path
       required: true
       schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, default: 50, maximum: 200 }
+      description: Page size (default 50, capped at 200).
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, default: 0, minimum: 0 }
+      description: Number of records to skip.
   responses:
     Health:
       description: OK
@@ -311,10 +471,52 @@ components:
       properties:
         ID: { type: string }
         PolicyNumber: { type: string, example: EIC/MOT/2026/000001 }
+        PartyID: { type: string }
+        ProductCode: { type: string, example: MOT }
         Status: { type: string, example: ISSUED }
         GrossPremium: { type: number }
         EffectiveFrom: { type: string, format: date-time }
         EffectiveTo: { type: string, format: date-time }
+    Claim:
+      type: object
+      properties:
+        ID: { type: string }
+        PolicyID: { type: string }
+        PartyID: { type: string }
+        Status: { type: string, example: FILED }
+        Description: { type: string }
+        Latitude: { type: number }
+        Longitude: { type: number }
+        Reserve: { type: number }
+        SettledAmount: { type: number }
+    Party:
+      type: object
+      description: Party read model (PascalCase Go field names).
+      properties:
+        ID: { type: string }
+        FullName: { type: string }
+        FullNameAmharic: { type: string }
+        PhoneE164: { type: string }
+        NationalID: { type: string }
+        Status: { type: string }
+        Type: { type: string }
+    Invoice:
+      type: object
+      properties:
+        ID: { type: string }
+        PolicyID: { type: string }
+        PartyID: { type: string }
+        AmountDue: { type: number }
+        AmountPaid: { type: number }
+        Status: { type: string, example: OPEN }
+    PaymentIntent:
+      type: object
+      properties:
+        invoice_id: { type: string }
+        reference: { type: string }
+        amount_minor: { type: integer, format: int64 }
+        checkout_url: { type: string }
+        status: { type: string, example: PENDING }
     TelebirrCallback:
       type: object
       required: [invoice_id, amount_minor, status]

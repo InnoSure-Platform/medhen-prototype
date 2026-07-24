@@ -1,0 +1,72 @@
+{
+  "color": {
+    "brand": {
+      "50":  { "value": "#eff6ff", "type": "color" },
+      "100": { "value": "#dbeafe", "type": "color" },
+      "200": { "value": "#bfdbfe", "type": "color" },
+      "300": { "value": "#93c5fd", "type": "color" },
+      "400": { "value": "#60a5fa", "type": "color" },
+      "500": { "value": "#3b82f6", "type": "color" },
+      "600": { "value": "#2563eb", "type": "color" },
+      "700": { "value": "#1d4ed8", "type": "color" },
+      "800": { "value": "#1e40af", "type": "color" },
+      "900": { "value": "#172554", "type": "color" },
+      "950": { "value": "#0f172a", "type": "color" }
+    },
+    "gold": {
+      "soft": { "value": "#fef3c7", "type": "color" },
+      "500": { "value": "#f59e0b", "type": "color" },
+      "600": { "value": "#d97706", "type": "color" }
+    },
+    "neutral": {
+      "0":   { "value": "#ffffff", "type": "color" },
+      "50":  { "value": "#f8fafc", "type": "color" },
+      "100": { "value": "#f1f5f9", "type": "color" },
+      "200": { "value": "#e2e8f0", "type": "color" },
+      "300": { "value": "#cbd5e1", "type": "color" },
+      "400": { "value": "#94a3b8", "type": "color" },
+      "500": { "value": "#64748b", "type": "color" },
+      "600": { "value": "#475569", "type": "color" },
+      "700": { "value": "#334155", "type": "color" },
+      "800": { "value": "#1e293b", "type": "color" },
+      "900": { "value": "#0f172a", "type": "color" },
+      "950": { "value": "#020617", "type": "color" }
+    },
+    "green":  { "50": { "value": "#ecfdf5", "type": "color" }, "500": { "value": "#10b981", "type": "color" }, "600": { "value": "#059669", "type": "color" }, "700": { "value": "#047857", "type": "color" } },
+    "amber":  { "50": { "value": "#fffbeb", "type": "color" }, "500": { "value": "#f59e0b", "type": "color" }, "600": { "value": "#d97706", "type": "color" }, "700": { "value": "#b45309", "type": "color" } },
+    "red":    { "50": { "value": "#fef2f2", "type": "color" }, "500": { "value": "#ef4444", "type": "color" }, "600": { "value": "#dc2626", "type": "color" }, "700": { "value": "#b91c1c", "type": "color" } },
+    "sky":    { "50": { "value": "#f0f9ff", "type": "color" }, "500": { "value": "#0ea5e9", "type": "color" }, "600": { "value": "#0284c7", "type": "color" }, "700": { "value": "#0369a1", "type": "color" } },
+    "violet": { "500": { "value": "#8b5cf6", "type": "color" } },
+    "teal":   { "500": { "value": "#14b8a6", "type": "color" } },
+    "rose":   { "500": { "value": "#f43f5e", "type": "color" } }
+  },
+  "radius": {
+    "sm":   { "value": "0.375rem", "type": "borderRadius" },
+    "md":   { "value": "0.625rem", "type": "borderRadius" },
+    "lg":   { "value": "0.875rem", "type": "borderRadius" },
+    "xl":   { "value": "1rem", "type": "borderRadius" },
+    "2xl":  { "value": "1.25rem", "type": "borderRadius" },
+    "full": { "value": "9999px", "type": "borderRadius" }
+  },
+  "font": {
+    "sans":    { "value": "var(--font-inter), Inter, system-ui, sans-serif", "type": "fontFamilies" },
+    "display": { "value": "var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif", "type": "fontFamilies" },
+    "ethiopic":{ "value": "var(--font-ethiopic), 'Noto Sans Ethiopic', sans-serif", "type": "fontFamilies" },
+    "mono":    { "value": "ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace", "type": "fontFamilies" }
+  },
+  "shadow": {
+    "soft":  { "value": "0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06)", "type": "boxShadow" },
+    "card":  { "value": "0 1px 3px rgb(15 23 42 / 0.05), 0 8px 24px -12px rgb(15 23 42 / 0.12)", "type": "boxShadow" },
+    "lift":  { "value": "0 12px 32px -12px rgb(37 99 235 / 0.25), 0 4px 12px -6px rgb(15 23 42 / 0.10)", "type": "boxShadow" },
+    "focus": { "value": "0 0 0 3px rgb(37 99 235 / 0.35)", "type": "boxShadow" }
+  },
+  "duration": {
+    "fast":   { "value": "150ms", "type": "duration" },
+    "base":   { "value": "250ms", "type": "duration" },
+    "slow":   { "value": "400ms", "type": "duration" }
+  },
+  "ease": {
+    "out":    { "value": "cubic-bezier(0.22, 1, 0.36, 1)", "type": "cubicBezier" },
+    "inout":  { "value": "cubic-bezier(0.65, 0, 0.35, 1)", "type": "cubicBezier" }
+  }
+}

@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- NextAuth/Keycloak profile
+   and token payloads are loosely typed at the provider boundary; this file is a
+   verbatim port of the security-reviewed auth glue. */
 import NextAuth, { NextAuthOptions } from "next-auth";
 import KeycloakProvider from "next-auth/providers/keycloak";
 
@@ -112,7 +115,9 @@ const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   secret: NEXTAUTH_SECRET,
   pages: {
-    signIn: "/login",
+    // Locale-prefixed login route (see app/[locale]/(marketing)/login). The
+    // login page itself offers a language toggle.
+    signIn: "/en/login",
   },
 };
 
